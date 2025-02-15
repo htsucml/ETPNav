@@ -37,6 +37,7 @@ from vlnce_baselines.common.utils import extract_instruction_tokens
 from vlnce_baselines.models.graph_utils import GraphMap, MAX_DIST
 from vlnce_baselines.utils import reduce_loss
 
+from .simulator_adapter import SimulatorAdapter
 from .utils import get_camera_orientations12
 from .utils import (
     length2mask, dir_angle_feature_with_ele,
@@ -166,11 +167,8 @@ class RLTrainer(BaseVLNCETrainer):
         self.config.TASK_CONFIG.SEED = self.config.TASK_CONFIG.SEED + self.local_rank
         self.config.freeze()
 
-        self.envs = construct_envs(
-            self.config, 
-            get_env_class(self.config.ENV_NAME),
-            auto_reset_done=False
-        )
+        #self.envs = construct_envs(self.config, get_env_class(self.config.ENV_NAME),auto_reset_done=False)
+        self.envs = SimulatorAdapter(config=self.config, simulator_type="Habitat")
         env_num = self.envs.num_envs
         dataset_len = sum(self.envs.number_of_episodes)
         logger.info(f'LOCAL RANK: {self.local_rank}, ENV NUM: {env_num}, DATASET LEN: {dataset_len}')
