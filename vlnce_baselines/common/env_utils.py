@@ -114,7 +114,7 @@ def construct_envs(
             configs.append(proc_config) 
 
     is_debug = True if sys.gettrace() else False
-    env_entry = habitat.ThreadedVectorEnv if is_debug else habitat.VectorEnv
+    env_entry = habitat.ThreadedVectorEnv #if is_debug else habitat.VectorEnv
     envs = env_entry(
         make_env_fn=make_env_fn,
         env_fn_args=tuple(zip(configs, env_classes)), 
@@ -209,7 +209,7 @@ def construct_envs_for_rl(
             configs.append(proc_config)
 
     is_debug = True if sys.gettrace() else False
-    env_entry = habitat.ThreadedVectorEnv if is_debug else habitat.VectorEnv
+    env_entry = habitat.ThreadedVectorEnv #if is_debug else habitat.VectorEnv
     envs = env_entry(
         make_env_fn=make_env_fn,
         env_fn_args=tuple(zip(configs, env_classes)),

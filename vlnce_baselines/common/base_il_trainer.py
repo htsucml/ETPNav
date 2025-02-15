@@ -333,7 +333,7 @@ class BaseVLNCETrainer(BaseILTrainer):
         self.policy.eval()
         self.waypoint_predictor.eval()
 
-        observations = envs.reset() 
+        observations = envs.reset()
         observations = extract_instruction_tokens(
             observations, self.config.TASK_CONFIG.TASK.INSTRUCTION_SENSOR_UUID
         )
@@ -393,7 +393,7 @@ class BaseVLNCETrainer(BaseILTrainer):
                 agent_state_i = envs.call_at(ob_i, "get_agent_info", {})
                 positions.append(agent_state_i['position'])
                 headings.append(agent_state_i['heading'])
-
+ 
             with torch.no_grad():
                 if 'CMA' in self.config.MODEL.policy_name:
                     # instructions
@@ -785,6 +785,8 @@ class BaseVLNCETrainer(BaseILTrainer):
             else torch.device("cpu")
         )
 
+        print(f"788 {self.device}, {torch.cuda.is_available()}")
+
         if "tensorboard" in self.config.VIDEO_OPTION:
             assert (
                 len(self.config.TENSORBOARD_DIR) > 0
@@ -802,7 +804,8 @@ class BaseVLNCETrainer(BaseILTrainer):
         self.config.defrost()
         self.config.TASK_CONFIG.DATASET.ROLES = ["guide"]
         self.config.TASK_CONFIG.TASK.MEASUREMENTS = ['POSITION', 'STEPS_TAKEN', 'COLLISIONS']
-        self.config.SIMULATOR_GPU_IDS = [self.config.SIMULATOR_GPU_IDS[self.config.local_rank]]
+        #self.config.SIMULATOR_GPU_IDS = [self.config.SIMULATOR_GPU_IDS[self.config.local_rank]]
+        self.config.SIMULATOR_GPU_IDS = [0]
 
         if 'HIGHTOLOW' in self.config.TASK_CONFIG.TASK.POSSIBLE_ACTIONS:
             idx = self.config.TASK_CONFIG.TASK.POSSIBLE_ACTIONS.index('HIGHTOLOW')
@@ -846,6 +849,7 @@ class BaseVLNCETrainer(BaseILTrainer):
         if world_size > 1:
             distr.init_process_group(backend='nccl', init_method='env://')
             self.device = self.config.TORCH_GPU_IDS[self.local_rank]
+            print(f"device: {self.device} local rank:{self.local_rank}")
             torch.cuda.set_device(self.device)
             self.config.defrost()
             self.config.TORCH_GPU_ID = self.config.TORCH_GPU_IDS[self.local_rank]

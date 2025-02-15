@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+import numpy as np
+np.float = float
+np.bool = bool
+np.int = int
 
 import argparse
 import random
@@ -17,8 +21,14 @@ from vlnce_baselines.config.default import get_config
 # )
 
 
+def debug_log(msg):
+    with open("debug_log.txt", "a") as debug_file:
+        debug_file.write(f"run: {msg} \n")
+
+
 def main():
     parser = argparse.ArgumentParser()
+    
     parser.add_argument(
         "--exp_name",
         type=str,
@@ -44,7 +54,7 @@ def main():
         nargs=argparse.REMAINDER,
         help="Modify config options from command line",
     )
-    parser.add_argument('--local_rank', type=int, default=0, help="local gpu id")
+    parser.add_argument('--local-rank', type=int, default=0, help="local gpu id")
     args = parser.parse_args()
     run_exp(**vars(args))
 
@@ -77,6 +87,12 @@ def run_exp(exp_name: str, exp_config: str,
         config.TASK_CONFIG.DATASET.DATA_PATH = 'data/datasets/R2R_VLNCE_v1-2_preprocessed/{split}/{split}.json.gz'
 
     config.local_rank = local_rank
+
+    #config.EVAL.fast_eval = True
+    #debug_log(config)
+    config.EVAL.EPISODE_COUNT = 5
+    debug_log(f"setting self.config.EVAL.EPISODE_COUNT  s {config.EVAL.EPISODE_COUNT } for testing.")
+
     config.freeze()
     os.system("mkdir -p data/logs/running_log")
     logger.add_filehandler('data/logs/running_log/'+config.LOG_FILE)
@@ -102,6 +118,10 @@ def run_exp(exp_name: str, exp_config: str,
     trainer = trainer_init(config)
 
     # import pdb; pdb.set_trace()
+
+    debug_log(f"config.EVAL.fast_eval: {config.EVAL.fast_eval}")
+    #raise
+
     if run_type == "train":
         trainer.train()
     elif run_type == "eval":

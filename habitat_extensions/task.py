@@ -56,9 +56,12 @@ class VLNCEDatasetV1(Dataset):
 
     @staticmethod
     def check_config_paths_exist(config: Config) -> bool:
+        data_path = config.DATA_PATH.format(split=config.SPLIT)
+        scenes_dir = config.SCENES_DIR
+        print(data_path, scenes_dir)
         return os.path.exists(
-            config.DATA_PATH.format(split=config.SPLIT)
-        ) and os.path.exists(config.SCENES_DIR)
+            data_path
+        ) and os.path.exists(scenes_dir)
 
     @staticmethod
     def _scene_from_episode(episode: VLNEpisode) -> str:
@@ -94,8 +97,9 @@ class VLNCEDatasetV1(Dataset):
                 if self._scene_from_episode(episode) in scenes_to_load
             ]
 
-        if config.EPISODES_ALLOWED is not None:
+        if config.EPISODES_ALLOWED is not None and False:
             ep_ids_before = {ep.episode_id for ep in self.episodes}
+            print(config.EPISODES_ALLOWED)
             ep_ids_to_purge = ep_ids_before - set([ int(id) for id in config.EPISODES_ALLOWED])
             self.episodes = [
                 episode

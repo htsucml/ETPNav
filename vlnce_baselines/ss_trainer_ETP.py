@@ -57,6 +57,10 @@ from torch.cuda.amp import autocast, GradScaler
 from vlnce_baselines.common.ops import pad_tensors_wgrad, gen_seq_masks
 from torch.nn.utils.rnn import pad_sequence
 
+def debug_log(msg):
+    with open("debug_log.txt", "a") as debug_file:
+        debug_file.write(f"ss_trainer_ETP: {msg} \n")
+
 
 @baseline_registry.register_trainer(name="SS-ETP")
 class RLTrainer(BaseVLNCETrainer):
@@ -569,9 +573,16 @@ class RLTrainer(BaseVLNCETrainer):
             episodes_allowed=self.traj[::5] if self.config.EVAL.fast_eval else self.traj,
             auto_reset_done=False, # unseen: 11006 
         )
+
         dataset_length = sum(self.envs.number_of_episodes)
         print('local rank:', self.local_rank, '|', 'dataset length:', dataset_length)
 
+
+        #debug_log(f"self.traj: {self.traj}")
+        #debug_log(f"self.traj[::5]: {self.traj[::5]}")
+        #debug_log(f"dataset_length: {dataset_length}")
+
+        
         obs_transforms = get_active_obs_transforms(self.config)
         observation_space = apply_obs_transforms_obs_space(
             self.envs.observation_spaces[0], obs_transforms
@@ -768,6 +779,18 @@ class RLTrainer(BaseVLNCETrainer):
             feedback = 'argmax'
         else:
             raise NotImplementedError
+
+        print(f"gt_data length: {len(self.gt_data)}")
+        #print(f"{len(self.gt_data['episodes'])}, {type(self.gt_data['episodes'])}")
+        print(self.gt_data['episodes'][0].keys()) 
+        #dict_keys(['episode_id', 'trajectory_id', 'scene_id', 
+        #'start_position', 'start_rotation', 'info', 'goals', 
+        #'instruction', 'reference_path'])
+        #print(type(self.gt_data['episodes'][0]))
+        new_gt_data = {}
+        for r in self.gt_data['episodes']:
+            new_gt_data[str(r['episode_id'])] = r
+
 
         self.envs.resume_all()
         observations = self.envs.reset()
@@ -987,7 +1010,16 @@ class RLTrainer(BaseVLNCETrainer):
                         continue
                     info = infos[i]
                     ep_id = curr_eps[i].episode_id
-                    gt_path = np.array(self.gt_data[str(ep_id)]['locations']).astype(np.float)
+                    #str(self.envs.current_episodes().episode_id) in self.gt_data
+                    #if str(ep_id) not in self.gt_data['episodes']:
+                    if str(ep_id) not in new_gt_data:
+                        print(f"{ep_id} does not exist")
+                        continue
+                    #gt_path = np.array(self.gt_data[str(ep_id)]['locations']).astype(np.float)
+                    #gt_path = np.array(self.gt_data['episodes'][str(ep_id)]['locations']).astype(np.float)
+                    #gt_path = np.array(new_gt_data[str(ep_id)]['reference_path']).astype(np.float)
+                    print(f"reference: {new_gt_data[str(ep_id)]['reference_path']}")
+
                     pred_path = np.array(info['position']['position'])
                     distances = np.array(info['position']['distance'])
                     metric = {}
@@ -999,9 +1031,13 @@ class RLTrainer(BaseVLNCETrainer):
                     metric['collisions'] = info['collisions']['count'] / len(pred_path)
                     gt_length = distances[0]
                     metric['spl'] = metric['success'] * gt_length / max(gt_length, metric['path_length'])
-                    dtw_distance = fastdtw(pred_path, gt_path, dist=NDTW.euclidean_distance)[0]
-                    metric['ndtw'] = np.exp(-dtw_distance / (len(gt_path) * 3.))
-                    metric['sdtw'] = metric['ndtw'] * metric['success']
+                    #dtw_distance = fastdtw(pred_path, gt_path, dist=NDTW.euclidean_distance)[0]
+                    dtw_distance = 0
+                    #metric['ndtw'] = np.exp(-dtw_distance / (len(gt_path) * 3.))
+                    metric['ndtw'] = 0
+                    #metric['sdtw'] = metric['ndtw'] * metric['success']
+                    metric['sdtw'] =  0
+                    
                     metric['ghost_cnt'] = self.gmaps[i].ghost_cnt
                     self.stat_eps[ep_id] = metric
                     self.pbar.update()
