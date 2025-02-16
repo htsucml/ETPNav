@@ -18,7 +18,7 @@ class SimulatorAdapter:
         if self.simulator_type == "habitat":
             from habitat_baselines.common.environments import get_env_class
             from vlnce_baselines.common.env_utils import construct_envs
-            self.envs = construct_envs(self.config, get_env_class(self.config.ENV_NAME))
+            self.envs = construct_envs(self.config, get_env_class(self.config.ENV_NAME), auto_reset_done=False)
 
             #self.num_envs = self.envs.num_envs
             #self.number_of_episodes = self.envs.number_of_episodes
@@ -102,9 +102,12 @@ class SimulatorAdapter:
         else:
             raise NotImplementedError
         
-    def call_at(self, idx, instr, input_dict):
+    def call_at(self, idx, instr, input_dict=None):
         if self.simulator_type == "habitat":
-            return self.envs.call_at(idx, instr, input_dict)
+            if input_dict:
+                return self.envs.call_at(idx, instr, input_dict)
+            else:
+                return self.envs.call_at(idx, instr)
         elif self.simulator_type == "omnigibson":
             pass #placeholder
         else:
@@ -136,7 +139,7 @@ class SimulatorAdapter:
             index (int): Index of the environment to pause.
         """
         if self.simulator_type == "habitat":
-            self.envs.pause_at(index)
+            return self.envs.pause_at(index)
         elif self.simulator_type == "omnigibson":
             # OmniGibson does not have pause, so you might simulate it by disabling updates.
             pass  # Placeholder
@@ -148,7 +151,7 @@ class SimulatorAdapter:
         Resumes all paused environments.
         """
         if self.simulator_type == "habitat":
-            self.envs.resume_all()
+            return self.envs.resume_all()
         elif self.simulator_type == "omnigibson":
             pass  # Placeholder
         else:

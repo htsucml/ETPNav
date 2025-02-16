@@ -574,14 +574,32 @@ class RLTrainer(BaseVLNCETrainer):
             if os.path.exists(fname) and not os.path.isfile(self.config.EVAL.CKPT_PATH_DIR):
                 print("skipping -- evaluation exists.")
                 return
-        #self.envs = construct_envs(
-            #self.config, 
-            #get_env_class(self.config.ENV_NAME),
-            #episodes_allowed=self.traj[::5] if self.config.EVAL.fast_eval else self.traj,
-            #auto_reset_done=False, # unseen: 11006 
-        #)
+        ea = self.traj[::5] if self.config.EVAL.fast_eval else self.traj
 
-        self.envs = SimulatorAdapter(config=self.config, simulator_type="Habitat")
+        debug_adapter = False
+
+        if debug_adapter:
+            debug_log(f'_eval_checkpoint: disabling adapter for debugging')
+            self.envs = construct_envs(self.config, get_env_class(self.config.ENV_NAME),episodes_allowed=ea,auto_reset_done=False)
+            import types
+            def get_num_envs(self):
+                return self.num_envs
+            def get_number_of_episodes(self):
+                return self.number_of_episodes
+            def get_observation_spaces(self):
+                return self.observation_spaces
+            def get_action_spaces(self):
+                return self.action_spaces
+
+            self.envs.get_num_envs = types.MethodType(get_num_envs, self.envs)
+            self.envs.get_number_of_episodes = types.MethodType(get_number_of_episodes, self.envs)
+            self.envs.get_observation_spaces = types.MethodType(get_observation_spaces, self.envs)
+            self.envs.get_action_spaces = types.MethodType(get_action_spaces, self.envs)
+        
+        # unseen: 11006 
+        else:
+            debug_log(f'enableing adapter )
+            self.envs = SimulatorAdapter(config=self.config, simulator_type="Habitat")
 
         #dataset_length = sum(self.envs.number_of_episodes)
         dataset_length = sum(self.envs.get_number_of_episodes())
