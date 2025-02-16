@@ -598,7 +598,7 @@ class RLTrainer(BaseVLNCETrainer):
         
         # unseen: 11006 
         else:
-            debug_log(f'enableing adapter )
+            debug_log(f'enableing adapter')
             self.envs = SimulatorAdapter(config=self.config, simulator_type="Habitat")
 
         #dataset_length = sum(self.envs.number_of_episodes)
