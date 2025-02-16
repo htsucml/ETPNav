@@ -1,3 +1,7 @@
+def debug_log(msg):
+    with open("debug_log.txt", "a") as debug_file:
+        debug_file.write(f"simulator_adapter: {msg} \n")
+
 class SimulatorAdapter:
     def __init__(self, config, simulator_type="Habitat"):
         """
@@ -12,13 +16,14 @@ class SimulatorAdapter:
         self.simulator_type = simulator_type.lower()
         
         if self.simulator_type == "habitat":
-            from habitat_baselines.common.env_utils import construct_envs, get_env_class
+            from habitat_baselines.common.environments import get_env_class
+            from vlnce_baselines.common.env_utils import construct_envs
             self.envs = construct_envs(self.config, get_env_class(self.config.ENV_NAME))
 
-            self.num_envs = self.envs.num_envs
-            self.number_of_episodes = self.envs.number_of_episodes
-            self.observation_spaces = self.envs.observation_spaces
-            self.action_spaces = self.envs.observation_spaces
+            #self.num_envs = self.envs.num_envs
+            #self.number_of_episodes = self.envs.number_of_episodes
+            #self.observation_spaces = self.envs.observation_spaces
+            #self.action_spaces = self.envs.action_spaces
 
         elif self.simulator_type == "omnigibson":
             import omnigibson as og
@@ -26,12 +31,47 @@ class SimulatorAdapter:
         else:
             raise ValueError(f"Unsupported simulator type: {self.simulator_type}")
 
+    def get_num_envs(self):
+        if self.simulator_type == "habitat":
+            return self.envs.num_envs
+        elif self.simulator_type == "omnigibson":
+            pass
+        else:
+            raise NotImplementedError
+    
+    def get_number_of_episodes(self):
+        if self.simulator_type == "habitat":
+            return self.envs.number_of_episodes
+        elif self.simulator_type == "omnigibson":
+            pass
+        else:
+            raise NotImplementedError
+    
+    def get_observation_spaces(self):
+        if self.simulator_type == "habitat":
+            return self.envs.observation_spaces
+        elif self.simulator_type == "omnigibson":
+            pass
+        else:
+            raise NotImplementedError
+    
+    def get_action_spaces(self):
+        if self.simulator_type == "habitat":
+            return self.envs.action_spaces 
+        elif self.simulator_type == "omnigibson":
+            pass
+        else:
+            raise NotImplementedError
+    
     def reset(self):
         """
         Resets the environment and returns the initial observation.
         """
         if self.simulator_type == "habitat":
-            return self.envs.reset()
+            ret = self.envs.reset()
+            debug_log(f"reset len(ret[0]): {len(ret[0])}")
+            #debug_log(f"reset type(ret[0][0]): {type(ret[0][0])}")
+            return ret
         elif self.simulator_type == "omnigibson":
             return self.envs.reset()
         else:
@@ -48,11 +88,44 @@ class SimulatorAdapter:
             Tuple (observations, rewards, dones, infos)
         """
         if self.simulator_type == "habitat":
-            return self.envs.step(actions)
+            ret = self.envs.step(actions)
+            observations, _, dones, infos = [list(x) for x in zip(*ret)]
+            debug_log(f"step len(ret[0]): {len(ret[0])}")
+            #debug_log(f"step type(ret[0][0]): {type(ret[0][0])}")
+            debug_log(f"step type(observations): {type(observations)}")
+            debug_log(f"step len(observations): {len(observations)}")
+            #debug_log(f"step observations[0]: {(observations[0])}")
+            #raise
+            return ret
         elif self.simulator_type == "omnigibson":
             return self.envs.step(actions)
         else:
             raise NotImplementedError
+        
+    def call_at(self, idx, instr, input_dict):
+        if self.simulator_type == "habitat":
+            return self.envs.call_at(idx, instr, input_dict)
+        elif self.simulator_type == "omnigibson":
+            pass #placeholder
+        else:
+            raise NotImplementedError
+        #_teacher_action envs.call_at(j, "cand_dist_to_goal", {"angle": angle_k, "forward": forward_k})
+        #_teacher_action_new envs.call_at(i, "current_dist_to_goal")
+        # envs.call_at(i, "point_dist_to_goal", {"pos": p[1]})
+        # envs.call_at(i, "ghost_dist_to_ref", {"ghost_vp_pos": ghost_vp_pos,"ref_path": self.gt_data[str(cur_episodes[i].episode_id)]['locations'],})
+        # rollout envs.call_at(i, "get_cand_real_pos", {"angle": ang, "forward": dis})
+    def call(self, instr, kargs=None):
+        if self.simulator_type == "habitat":
+            if kargs:
+                return self.envs.call(instr, kargs)
+            else:
+                return self.envs.call(instr)
+        elif self.simulator_type == "omnigibson":
+            pass #placeholder
+        else:
+            raise NotImplementedError
+        #_teacher_action envs.call(["get_cand_idx"]*self.envs.num_envs, kargs)
+        #get_pos_ori envs.call(['get_pos_ori']*self.envs.num_envs)
 
     def pause_at(self, index):
         """
@@ -113,6 +186,17 @@ class SimulatorAdapter:
             return obs
         else:
             raise NotImplementedError
+
+    def current_episodes(self):
+        if self.simulator_type == "habitat":
+            return self.envs.current_episodes()
+        elif self.simulator_type == "omnigibson":
+            # Placeholder: Implement observation transforms for OmniGibson
+            pass
+        else:
+            raise NotImplementedError
+        
+        #current
 
     def close(self):
         """

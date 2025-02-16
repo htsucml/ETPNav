@@ -169,11 +169,15 @@ class RLTrainer(BaseVLNCETrainer):
 
         #self.envs = construct_envs(self.config, get_env_class(self.config.ENV_NAME),auto_reset_done=False)
         self.envs = SimulatorAdapter(config=self.config, simulator_type="Habitat")
-        env_num = self.envs.num_envs
-        dataset_len = sum(self.envs.number_of_episodes)
+        #env_num = self.envs.num_envs
+        env_num = self.envs.get_num_envs()
+        #dataset_len = sum(self.envs.number_of_episodes)
+        dataset_len = sum(self.envs.get_number_of_episodes())
         logger.info(f'LOCAL RANK: {self.local_rank}, ENV NUM: {env_num}, DATASET LEN: {dataset_len}')
-        observation_space = self.envs.observation_spaces[0]
-        action_space = self.envs.action_spaces[0]
+        #observation_space = self.envs.observation_spaces[0]
+        observation_space = self.envs.get_observation_spaces()[0]
+        #action_space = self.envs.action_spaces[0]
+        action_space = self.envs.get_action_spaces()[0]
         self.obs_transforms = get_active_obs_transforms(self.config)
         observation_space = apply_obs_transforms_obs_space(
             observation_space, self.obs_transforms
@@ -267,14 +271,16 @@ class RLTrainer(BaseVLNCETrainer):
         elif self.config.MODEL.task_type == 'rxr':
             kargs = []
             current_episodes = self.envs.current_episodes()
-            for i in range(self.envs.num_envs):
+            #for i in range(self.envs.num_envs):
+            for i in range(self.envs.get_num_envs()):
                 kargs.append({
                     'ref_path':self.gt_data[str(current_episodes[i].episode_id)]['locations'],
                     'angles':batch_angles[i],
                     'distances':batch_distances[i],
                     'candidate_length':candidate_lengths[i]
                 })
-            oracle_cand_idx = self.envs.call(["get_cand_idx"]*self.envs.num_envs, kargs)
+            #oracle_cand_idx = self.envs.call(["get_cand_idx"]*self.envs.num_envs, kargs)
+            oracle_cand_idx = self.envs.call(["get_cand_idx"]*self.envs.get_num_envs(), kargs)
             return oracle_cand_idx
 
     def _teacher_action_new(self, batch_gmap_vp_ids, batch_no_vp_left):
@@ -311,7 +317,8 @@ class RLTrainer(BaseVLNCETrainer):
         batch_rgb_fts, batch_dep_fts, batch_loc_fts = [], [], []
         batch_nav_types, batch_view_lens = [], []
 
-        for i in range(self.envs.num_envs):
+        #for i in range(self.envs.num_envs):
+        for i in range(self.envs.get_num_envs()):
             rgb_fts, dep_fts, loc_fts , nav_types = [], [], [], []
             cand_idxes = np.zeros(12, dtype=np.bool)
             cand_idxes[obs['cand_img_idxes'][i]] = True
@@ -404,7 +411,8 @@ class RLTrainer(BaseVLNCETrainer):
         batch_gmap_masks = gen_seq_masks(batch_gmap_lens).cuda()
         batch_gmap_visited_masks = pad_sequence(batch_gmap_visited_masks, batch_first=True).cuda()
 
-        bs = self.envs.num_envs
+        #bs = self.envs.num_envs
+        bs = self.envs.get_num_envs()
         max_gmap_len = max(batch_gmap_lens)
         gmap_pair_dists = torch.zeros(bs, max_gmap_len, max_gmap_len).float()
         for i in range(bs):
@@ -429,7 +437,8 @@ class RLTrainer(BaseVLNCETrainer):
     @staticmethod
     def _pause_envs(envs, batch, envs_to_pause):
         if len(envs_to_pause) > 0:
-            state_index = list(range(envs.num_envs))
+            #state_index = list(range(envs.num_envs))
+            state_index = list(range(envs.get_num_envs()))
             for idx in reversed(envs_to_pause):
                 state_index.pop(idx)
                 envs.pause_at(idx)
@@ -565,14 +574,17 @@ class RLTrainer(BaseVLNCETrainer):
             if os.path.exists(fname) and not os.path.isfile(self.config.EVAL.CKPT_PATH_DIR):
                 print("skipping -- evaluation exists.")
                 return
-        self.envs = construct_envs(
-            self.config, 
-            get_env_class(self.config.ENV_NAME),
-            episodes_allowed=self.traj[::5] if self.config.EVAL.fast_eval else self.traj,
-            auto_reset_done=False, # unseen: 11006 
-        )
+        #self.envs = construct_envs(
+            #self.config, 
+            #get_env_class(self.config.ENV_NAME),
+            #episodes_allowed=self.traj[::5] if self.config.EVAL.fast_eval else self.traj,
+            #auto_reset_done=False, # unseen: 11006 
+        #)
 
-        dataset_length = sum(self.envs.number_of_episodes)
+        self.envs = SimulatorAdapter(config=self.config, simulator_type="Habitat")
+
+        #dataset_length = sum(self.envs.number_of_episodes)
+        dataset_length = sum(self.envs.get_number_of_episodes())
         print('local rank:', self.local_rank, '|', 'dataset length:', dataset_length)
 
 
@@ -582,22 +594,28 @@ class RLTrainer(BaseVLNCETrainer):
 
         
         obs_transforms = get_active_obs_transforms(self.config)
+        #debug_log(f'self.envs.observation_spaces[0], {self.envs.observation_spaces[0]}')
+        #debug_log(f'self.envs.envs.observation_spaces[0], {self.envs.envs.observation_spaces[0]}')
         observation_space = apply_obs_transforms_obs_space(
-            self.envs.observation_spaces[0], obs_transforms
+            #self.envs.observation_spaces[0], obs_transforms
+            self.envs.get_observation_spaces()[0], obs_transforms
         )
         self._initialize_policy(
             self.config,
             load_from_ckpt=True,
             observation_space=observation_space,
-            action_space=self.envs.action_spaces[0],
+            #action_space=self.envs.action_spaces[0],
+            action_space=self.envs.get_action_spaces()[0],
         )
         self.policy.eval()
         self.waypoint_predictor.eval()
 
         if self.config.EVAL.EPISODE_COUNT == -1:
-            eps_to_eval = sum(self.envs.number_of_episodes)
+            #eps_to_eval = sum(self.envs.number_of_episodes)
+            eps_to_eval = sum(self.envs.get_number_of_episodes())
         else:
-            eps_to_eval = min(self.config.EVAL.EPISODE_COUNT, sum(self.envs.number_of_episodes))
+            #eps_to_eval = min(self.config.EVAL.EPISODE_COUNT, sum(self.envs.number_of_episodes))
+            eps_to_eval = min(self.config.EVAL.EPISODE_COUNT, sum(self.envs.get_number_of_episodes()))
         self.stat_eps = {}
         self.pbar = tqdm.tqdm(total=eps_to_eval) if self.config.use_pbar else None
 
@@ -708,21 +726,25 @@ class RLTrainer(BaseVLNCETrainer):
 
         obs_transforms = get_active_obs_transforms(self.config)
         observation_space = apply_obs_transforms_obs_space(
-            self.envs.observation_spaces[0], obs_transforms
+            #self.envs.observation_spaces[0], obs_transforms
+            self.envs.get_observation_spaces()[0], obs_transforms
         )
         self._initialize_policy(
             self.config,
             load_from_ckpt=True,
             observation_space=observation_space,
-            action_space=self.envs.action_spaces[0],
+            #action_space=self.envs.action_spaces[0],
+            action_space=self.envs.get_action_spaces()[0],
         )
         self.policy.eval()
         self.waypoint_predictor.eval()
 
         if self.config.INFERENCE.EPISODE_COUNT == -1:
-            eps_to_infer = sum(self.envs.number_of_episodes)
+            #eps_to_infer = sum(self.envs.number_of_episodes)
+            eps_to_infer = sum(self.envs.get_number_of_episodes())
         else:
-            eps_to_infer = min(self.config.INFERENCE.EPISODE_COUNT, sum(self.envs.number_of_episodes))
+            #eps_to_infer = min(self.config.INFERENCE.EPISODE_COUNT, sum(self.envs.number_of_episodes))
+            eps_to_infer = min(self.config.INFERENCE.EPISODE_COUNT, sum(self.envs.get_number_of_episodes()))
         self.path_eps = defaultdict(list)
         self.inst_ids: Dict[str, int] = {}   # transfer submit format
         self.pbar = tqdm.tqdm(total=eps_to_infer)
@@ -765,7 +787,8 @@ class RLTrainer(BaseVLNCETrainer):
             logger.info(f"Predictions saved to: {self.config.INFERENCE.PREDICTIONS_FILE}")
 
     def get_pos_ori(self):
-        pos_ori = self.envs.call(['get_pos_ori']*self.envs.num_envs)
+        #pos_ori = self.envs.call(['get_pos_ori']*self.envs.num_envs)
+        pos_ori = self.envs.call(['get_pos_ori']*self.envs.get_num_envs())
         pos = [x[0] for x in pos_ori]
         ori = [x[1] for x in pos_ori]
         return pos, ori
@@ -803,14 +826,17 @@ class RLTrainer(BaseVLNCETrainer):
             env_to_pause = [i for i, ep in enumerate(self.envs.current_episodes()) 
                             if ep.episode_id in self.stat_eps]    
             self.envs, batch = self._pause_envs(self.envs, batch, env_to_pause)
-            if self.envs.num_envs == 0: return
+            #if self.envs.num_envs == 0: return
+            if self.envs.get_num_envs() == 0: return
         if mode == 'infer':
             env_to_pause = [i for i, ep in enumerate(self.envs.current_episodes()) 
                             if ep.episode_id in self.path_eps]    
             self.envs, batch = self._pause_envs(self.envs, batch, env_to_pause)
-            if self.envs.num_envs == 0: return
+            #if self.envs.num_envs == 0: return
+            if self.envs.get_num_envs() == 0: return
             curr_eps = self.envs.current_episodes()
-            for i in range(self.envs.num_envs):
+            #for i in range(self.envs.num_envs):
+            for i in range(self.envs.get_num_envs()):
                 if self.config.MODEL.task_type == 'rxr':
                     ep_id = curr_eps[i].episode_id
                     k = curr_eps[i].instruction.instruction_id
@@ -827,18 +853,22 @@ class RLTrainer(BaseVLNCETrainer):
 
         loss = 0.
         total_actions = 0.
-        not_done_index = list(range(self.envs.num_envs))
+        #not_done_index = list(range(self.envs.num_envs))
+        not_done_index = list(range(self.envs.get_num_envs()))
 
         have_real_pos = (mode == 'train' or self.config.VIDEO_OPTION)
         ghost_aug = self.config.IL.ghost_aug if mode == 'train' else 0
         self.gmaps = [GraphMap(have_real_pos, 
                                self.config.IL.loc_noise, 
                                self.config.MODEL.merge_ghost,
-                               ghost_aug) for _ in range(self.envs.num_envs)]
-        prev_vp = [None] * self.envs.num_envs
+                               #ghost_aug) for _ in range(self.envs.num_envs)]
+                               ghost_aug) for _ in range(self.envs.get_num_envs())]
+       # prev_vp = [None] * self.envs.num_envs
+        prev_vp = [None] * self.envs.get_num_envs()
 
         for stepk in range(self.max_len):
-            total_actions += self.envs.num_envs
+            #total_actions += self.envs.num_envs
+            total_actions += self.envs.get_num_envs()
             txt_masks = all_txt_masks[not_done_index]
             txt_embeds = all_txt_embeds[not_done_index]
             
@@ -862,7 +892,8 @@ class RLTrainer(BaseVLNCETrainer):
             # get vp_id, vp_pos of cur_node and cand_ndoe
             cur_pos, cur_ori = self.get_pos_ori()
             cur_vp, cand_vp, cand_pos = [], [], []
-            for i in range(self.envs.num_envs):
+            #for i in range(self.envs.num_envs):
+            for i in range(self.envs.get_num_envs()):
                 cur_vp_i, cand_vp_i, cand_pos_i = self.gmaps[i].identify_node(
                     cur_pos[i], cur_ori[i], wp_outputs['cand_angles'][i], wp_outputs['cand_distances'][i]
                 )
@@ -872,16 +903,19 @@ class RLTrainer(BaseVLNCETrainer):
             
             if mode == 'train' or self.config.VIDEO_OPTION:
                 cand_real_pos = []
-                for i in range(self.envs.num_envs):
+                #for i in range(self.envs.num_envs):
+                for i in range(self.envs.get_num_envs()):
                     cand_real_pos_i = [
                         self.envs.call_at(i, "get_cand_real_pos", {"angle": ang, "forward": dis})
                         for ang, dis in zip(wp_outputs['cand_angles'][i], wp_outputs['cand_distances'][i])
                     ]
                     cand_real_pos.append(cand_real_pos_i)
             else:
-                cand_real_pos = [None] * self.envs.num_envs
+                #cand_real_pos = [None] * self.envs.num_envs
+                cand_real_pos = [None] * self.envs.get_num_envs()
 
-            for i in range(self.envs.num_envs):
+            #for i in range(self.envs.num_envs):
+            for i in range(self.envs.get_num_envs()):
                 cur_embeds = avg_pano_embeds[i]
                 cand_embeds = pano_embeds[i][vp_inputs['nav_types'][i]==1]
                 self.gmaps[i].update_graph(prev_vp[i], stepk+1,
@@ -1003,7 +1037,8 @@ class RLTrainer(BaseVLNCETrainer):
             # calculate metric
             if mode == 'eval':
                 curr_eps = self.envs.current_episodes()
-                for i in range(self.envs.num_envs):
+                #for i in range(self.envs.num_envs):
+                for i in range(self.envs.get_num_envs()):
                     if not dones[i]:
                         continue
                     info = infos[i]
@@ -1043,7 +1078,8 @@ class RLTrainer(BaseVLNCETrainer):
             # record path
             if mode == 'infer':
                 curr_eps = self.envs.current_episodes()
-                for i in range(self.envs.num_envs):
+                #for i in range(self.envs.num_envs):
+                for i in range(self.envs.get_num_envs()):
                     if not dones[i]:
                         continue
                     info = infos[i]
@@ -1068,7 +1104,8 @@ class RLTrainer(BaseVLNCETrainer):
 
             # pause env
             if sum(dones) > 0:
-                for i in reversed(list(range(self.envs.num_envs))):
+                #for i in reversed(list(range(self.envs.num_envs))):
+                for i in reversed(list(range(self.envs.get_num_envs()))):
                     if dones[i]:
                         not_done_index.pop(i)
                         self.envs.pause_at(i)
@@ -1077,10 +1114,12 @@ class RLTrainer(BaseVLNCETrainer):
                         self.gmaps.pop(i)
                         prev_vp.pop(i)
 
-            if self.envs.num_envs == 0:
+            #if self.envs.num_envs == 0:
+            if self.envs.get_num_envs() == 0:
                 break
 
             # obs for next step
+            debug_log(f'rollout observations[0] {observations[0]}')
             observations = extract_instruction_tokens(observations,self.config.TASK_CONFIG.TASK.INSTRUCTION_SENSOR_UUID)
             batch = batch_obs(observations, self.device)
             batch = apply_obs_transforms_batch(batch, self.obs_transforms)
