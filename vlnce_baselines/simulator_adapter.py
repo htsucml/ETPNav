@@ -69,7 +69,7 @@ class SimulatorAdapter:
         """
         if self.simulator_type == "habitat":
             ret = self.envs.reset()
-            debug_log(f"reset len(ret[0]): {len(ret[0])}")
+            #debug_log(f"reset len(ret[0]): {len(ret[0])}") #25
             #debug_log(f"reset type(ret[0][0]): {type(ret[0][0])}")
             return ret
         elif self.simulator_type == "omnigibson":
@@ -85,15 +85,29 @@ class SimulatorAdapter:
             actions (list or dict): Actions for each environment instance.
 
         Returns:
-            Tuple (observations, rewards, dones, infos)
+            ret[0][0]:
+                Tuple (observations, rewards, dones, infos)
+                    observations: 
         """
         if self.simulator_type == "habitat":
             ret = self.envs.step(actions)
+            #https://github.com/facebookresearch/habitat-sim/blob/main/src_python/habitat_sim/simulator.py
+            #get_sensor_observations
+
+
+            debug_log(f"type(ret[0][0]), {type(ret[0][0])}") #h-Observations
+            debug_log(f"ret[0][0].keys(), {ret[0][0].keys()}") #h-Observations
+            #dict_keys(['rgb', 'depth', 'rgb_30', 'rgb_60', 'rgb_90', 'rgb_120', 'rgb_150', 'rgb_180', 'rgb_210', 'rgb_240', 'rgb_270', 'rgb_300', 'rgb_330', 'depth_30', 'depth_60', 'depth_90', 'depth_120', 'depth_150', 'depth_180', 'depth_210', 'depth_240', 'depth_270', 'depth_300', 'depth_330', 'instruction']) 
+            debug_log(f"type(ret[0][1]), {type(ret[0][1])}") #float
+            debug_log(f"type(ret[0][2]), {type(ret[0][2])}") #bool, Task done?
+            debug_log(f"type(ret[0][3]), {type(ret[0][3])}") #h-Metrics
             observations, _, dones, infos = [list(x) for x in zip(*ret)]
-            debug_log(f"step len(ret[0]): {len(ret[0])}")
+
+
+            #debug_log(f"step len(ret[0]): {len(ret[0])}") 4
             #debug_log(f"step type(ret[0][0]): {type(ret[0][0])}")
-            debug_log(f"step type(observations): {type(observations)}")
-            debug_log(f"step len(observations): {len(observations)}")
+            #debug_log(f"step type(observations): {type(observations)}") #list
+            #debug_log(f"step len(observations): {len(observations)}") 1
             #debug_log(f"step observations[0]: {(observations[0])}")
             #raise
             return ret

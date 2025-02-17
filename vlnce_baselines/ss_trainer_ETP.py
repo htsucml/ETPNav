@@ -598,8 +598,17 @@ class RLTrainer(BaseVLNCETrainer):
         
         # unseen: 11006 
         else:
-            debug_log(f'enableing adapter')
-            self.envs = SimulatorAdapter(config=self.config, simulator_type="Habitat")
+            debug_log(f'_eval_checkpoint: enableing adapter')
+            
+            #test_og = True
+            test_og = False
+            if test_og:
+                debug_log(f"_eval_checkpoint: testing OG sim")
+                og_cfg_path = 'og/configs/test_cfg.yaml'
+                self.envs = SimulatorAdapter(config=og_cfg_path, simulator_type="omnigibson")
+            else:
+                self.envs = SimulatorAdapter(config=self.config, simulator_type="Habitat")
+
 
         #dataset_length = sum(self.envs.number_of_episodes)
         dataset_length = sum(self.envs.get_number_of_episodes())
@@ -1137,7 +1146,7 @@ class RLTrainer(BaseVLNCETrainer):
                 break
 
             # obs for next step
-            debug_log(f'rollout observations[0] {observations[0]}')
+            #debug_log(f'rollout observations[0] {observations[0]}')
             observations = extract_instruction_tokens(observations,self.config.TASK_CONFIG.TASK.INSTRUCTION_SENSOR_UUID)
             batch = batch_obs(observations, self.device)
             batch = apply_obs_transforms_batch(batch, self.obs_transforms)

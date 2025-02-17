@@ -9,11 +9,47 @@ import random
 import os
 import numpy as np
 import torch
-from habitat import logger
-from habitat_baselines.common.baseline_registry import baseline_registry
 
-import habitat_extensions  # noqa: F401
-import vlnce_baselines  # noqa: F401
+#from habitat import logger
+import logging
+class HabitatLogger(logging.Logger):
+    def __init__(
+        self,
+        name,
+        level,
+        filename=None,
+        filemode="a",
+        stream=None,
+        format_str=None,
+        dateformat=None,
+        style="%",
+    ):
+        super().__init__(name, level)
+        if filename is not None:
+            handler = logging.FileHandler(filename, filemode)  # type:ignore
+        else:
+            handler = logging.StreamHandler(stream)  # type:ignore
+        self._formatter = logging.Formatter(format_str, dateformat, style)
+        handler.setFormatter(self._formatter)
+        super().addHandler(handler)
+
+    def add_filehandler(self, log_filename):
+        filehandler = logging.FileHandler(log_filename)
+        filehandler.setFormatter(self._formatter)
+        self.addHandler(filehandler)
+
+
+logger = HabitatLogger(
+    name="habitat",
+    level=int(os.environ.get("HABITAT_LAB_LOG", logging.INFO)),
+    format_str="%(asctime)-15s %(message)s",
+)
+
+#from habitat_baselines.common.baseline_registry import baseline_registry
+from vlnce_baselines.ss_trainer_ETP import RLTrainer
+
+#import habitat_extensions  # noqa: F401
+#import vlnce_baselines  # noqa: F401
 from vlnce_baselines.config.default import get_config
 # from vlnce_baselines.nonlearning_agents import (
 #     evaluate_agent,
@@ -92,6 +128,7 @@ def run_exp(exp_name: str, exp_config: str,
     #debug_log(config)
     config.EVAL.EPISODE_COUNT = 5
     debug_log(f"setting self.config.EVAL.EPISODE_COUNT  s {config.EVAL.EPISODE_COUNT } for testing.")
+    
 
     config.freeze()
     os.system("mkdir -p data/logs/running_log")
@@ -113,7 +150,8 @@ def run_exp(exp_name: str, exp_config: str,
     #     nonlearning_inference(config)
     #     return
 
-    trainer_init = baseline_registry.get_trainer(config.TRAINER_NAME)
+    #trainer_init = baseline_registry.get_trainer(config.TRAINER_NAME)
+    trainer_init = RLTrainer
     assert trainer_init is not None, f"{config.TRAINER_NAME} is not supported"
     trainer = trainer_init(config)
 
