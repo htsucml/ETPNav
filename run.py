@@ -1,14 +1,93 @@
 #!/usr/bin/env python3
+
+import torch
 import numpy as np
 np.float = float
 np.bool = bool
 np.int = int
-
 import argparse
 import random
 import os
-import numpy as np
-import torch
+
+
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+
+def _get_og_config(scene_name, obj_config): #config preprossing
+    import omnigibson as og
+    import yaml
+    cfg = {
+        "scene": {
+            "type": "InteractiveTraversableScene",
+            "scene_model": scene_name,
+            #"load_room_types": ['kitchen', 'living_room'],
+            #"load_room_types": ['living_room'], #Workaround: to speed up scene loading
+            #"load_room_types": ['kitchen'], #Workaround: to speed up scene loading
+            #"trav_map_resolution": 0.01, # meter per pixel, default is 0.1
+        },
+        "robots": [
+            {
+                "type": "Fetch",
+                "obs_modalities": ["rgb"],
+                #"default_arm_pose": "diagonal30",
+                #"default_reset_mode": "tuck",
+                "action_type":"continuous",
+                "action_normalize":True,
+                "grasping_mode":'physical',
+                "position": [0.0, 0.0, 0.0],  # Adjusted position
+                #"orientation": [0.9914, 0, 0, 0.1305], #15 deg, Fetch disappeared
+                #"orientation": [0.5258, 0, 0, 0.8506], #116 deg
+                #"orientation": [0.7071, 0, 0, 0.7071], #90 deg
+                #"orientation": [0.8660, 0, 0, 0.5000], #60 deg
+                #Bug: The position/orientation modification never works for some reason, rotate the robot as a workaround
+                
+            },
+        ],
+        "task":{
+            'type': "GraspTask",
+            'obj_name': obj_config['name'],
+            'objects_config':[obj_config],
+        },
+        "objects":[
+            { #https://github.com/StanfordVL/OmniGibson/blob/main/omnigibson/examples/action_primitives/solve_simple_task.py
+                "type": "DatasetObject",
+                "name": "cologne",
+                "category": "bottle_of_cologne",
+                "model": "lyipur",
+                "position": [-0.5, -1.2, 0.5],
+                "orientation": [0, 0, 0, 1],
+            },
+        ],
+    }
+
+    #replace the robot config with Fetch built-in
+    fetch_config_filename = os.path.join(og.example_config_path, "fetch_primitives.yaml")
+    fetch_config = yaml.load(open(fetch_config_filename, "r"), Loader=yaml.FullLoader)
+    cfg['robots'] = fetch_config['robots']
+    #cfg['robots'][0]['position'] = [1.0, 1.0, 0.0]
+    return cfg
+
+
+def get_temp_og_cfg():
+    import omnigibson as og
+    robot_position = [-1,2.5]
+    scene_name = 'Rs_int'
+    obj_config = {'pos': [-0.01513892412185669, 1.4189201593399048, 1.0810081958770752], 'ori': [0.5094113349914551, -0.07470039278268814, 0.2355378270149231, -0.824282705783844], 'init_info': {'class_module': 'omnigibson.objects.dataset_object', 'class_name': 'DatasetObject', 'args': {'name': 'wooden_spoon_83', 'category': 'wooden_spoon', 'model': 'aeubta', 'prim_type': 0, 'uuid': 36377017, 'scale': [1.0, 1.0, 1.0], 'in_rooms': ['kitchen_0', 'living_room_0']}}}
+    obj_config['category'] = obj_config['init_info']['args']['category']
+    obj_config['name'] = obj_config['init_info']['args']['name']
+    obj_config['type'] = "DatasetObject"
+    cfg = _get_og_config(scene_name, obj_config)
+    del cfg['task'] #Bug: The task triggers "Resetting error:  Could not infer dtype of JointPrim", don't know why
+    cfg['robots'][0]['position'] = [0,0,0]
+    cfg['robots'][0]['position'] = [robot_position[0], robot_position[1], cfg['robots'][0]['position'][2]]
+    print(cfg)
+    return cfg
+
+
 
 #from habitat import logger
 import logging
@@ -46,11 +125,13 @@ logger = HabitatLogger(
 )
 
 #from habitat_baselines.common.baseline_registry import baseline_registry
-from vlnce_baselines.ss_trainer_ETP import RLTrainer
+
 
 #import habitat_extensions  # noqa: F401
 #import vlnce_baselines  # noqa: F401
-from vlnce_baselines.config.default import get_config
+
+
+
 # from vlnce_baselines.nonlearning_agents import (
 #     evaluate_agent,
 #     nonlearning_inference,
@@ -60,6 +141,8 @@ from vlnce_baselines.config.default import get_config
 def debug_log(msg):
     with open("debug_log.txt", "a") as debug_file:
         debug_file.write(f"run: {msg} \n")
+
+
 
 
 def main():
@@ -107,6 +190,30 @@ def run_exp(exp_name: str, exp_config: str,
     Returns:
         None.
     """
+
+    #og_test = True
+    og_test = False
+    if og_test:
+        import threading
+        env_lock = threading.Lock()
+        with env_lock:
+            from omnigibson.macros import gm
+            import omnigibson as og
+            from omnigibson import Environment
+            import yaml
+
+            gm.USE_GPU_DYNAMICS = False
+            gm.ENABLE_FLATCACHE = True
+            og_cfg = get_temp_og_cfg()
+            envs = Environment(og_cfg)
+    else: 
+        envs = None
+
+
+
+    from vlnce_baselines.ss_trainer_ETP import RLTrainer
+    from vlnce_baselines.config.default import get_config
+
     config = get_config(exp_config, opts)
     config.defrost()
 
@@ -135,12 +242,15 @@ def run_exp(exp_name: str, exp_config: str,
     logger.add_filehandler('data/logs/running_log/'+config.LOG_FILE)
 
     random.seed(config.TASK_CONFIG.SEED)
+
     np.random.seed(config.TASK_CONFIG.SEED)
     torch.manual_seed(config.TASK_CONFIG.SEED)
+
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = False
     if torch.cuda.is_available():
         torch.set_num_threads(1)
+    
 
     # if run_type == "eval" and config.EVAL.EVAL_NONLEARNING:
     #     evaluate_agent(config)
@@ -151,6 +261,8 @@ def run_exp(exp_name: str, exp_config: str,
     #     return
 
     #trainer_init = baseline_registry.get_trainer(config.TRAINER_NAME)
+
+
     trainer_init = RLTrainer
     assert trainer_init is not None, f"{config.TRAINER_NAME} is not supported"
     trainer = trainer_init(config)
@@ -158,12 +270,13 @@ def run_exp(exp_name: str, exp_config: str,
     # import pdb; pdb.set_trace()
 
     debug_log(f"config.EVAL.fast_eval: {config.EVAL.fast_eval}")
-    #raise
+
+
 
     if run_type == "train":
         trainer.train()
     elif run_type == "eval":
-        trainer.eval()
+        trainer.eval(envs)
     elif run_type == "inference":
         trainer.inference()
 

@@ -1,3 +1,4 @@
+
 def debug_log(msg):
     with open("debug_log.txt", "a") as debug_file:
         debug_file.write(f"simulator_adapter: {msg} \n")
@@ -26,8 +27,19 @@ class SimulatorAdapter:
             #self.action_spaces = self.envs.action_spaces
 
         elif self.simulator_type == "omnigibson":
+            '''
             import omnigibson as og
-            self.envs = og.Environment(self.config)  # Placeholder for actual OG setup
+            import yaml
+            from omnigibson.macros import gm
+            gm.USE_GPU_DYNAMICS = False
+            gm.ENABLE_FLATCACHE = True
+            '''
+
+            #self.config = yaml.load(open(self.config, "r"), Loader=yaml.FullLoader)
+            debug_log(f"omnigibson config: {self.config}")
+            self.envs = config #directly pass og envs
+            print("started omnigibson in simulationadapter")
+            #self.envs = og.Environment(self.config)  # Placeholder for actual OG setup
         else:
             raise ValueError(f"Unsupported simulator type: {self.simulator_type}")
 
@@ -95,12 +107,12 @@ class SimulatorAdapter:
             #get_sensor_observations
 
 
-            debug_log(f"type(ret[0][0]), {type(ret[0][0])}") #h-Observations
-            debug_log(f"ret[0][0].keys(), {ret[0][0].keys()}") #h-Observations
+            #debug_log(f"type(ret[0][0]), {type(ret[0][0])}") #h-Observations
+            #debug_log(f"ret[0][0].keys(), {ret[0][0].keys()}") #h-Observations
             #dict_keys(['rgb', 'depth', 'rgb_30', 'rgb_60', 'rgb_90', 'rgb_120', 'rgb_150', 'rgb_180', 'rgb_210', 'rgb_240', 'rgb_270', 'rgb_300', 'rgb_330', 'depth_30', 'depth_60', 'depth_90', 'depth_120', 'depth_150', 'depth_180', 'depth_210', 'depth_240', 'depth_270', 'depth_300', 'depth_330', 'instruction']) 
-            debug_log(f"type(ret[0][1]), {type(ret[0][1])}") #float
-            debug_log(f"type(ret[0][2]), {type(ret[0][2])}") #bool, Task done?
-            debug_log(f"type(ret[0][3]), {type(ret[0][3])}") #h-Metrics
+            #debug_log(f"type(ret[0][1]), {type(ret[0][1])}") #float
+            #debug_log(f"type(ret[0][2]), {type(ret[0][2])}") #bool, Task done?
+            #debug_log(f"type(ret[0][3]), {type(ret[0][3])}") #h-Metrics
             observations, _, dones, infos = [list(x) for x in zip(*ret)]
 
 

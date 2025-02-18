@@ -27,7 +27,7 @@ from habitat_baselines.common.obs_transformers import (
     apply_obs_transforms_obs_space,
     get_active_obs_transforms,
 )
-from habitat_baselines.common.tensorboard_utils import TensorboardWriter
+#from habitat_baselines.common.tensorboard_utils import TensorboardWriter
 from habitat_baselines.utils.common import batch_obs
 
 from vlnce_baselines.common.aux_losses import AuxLosses
@@ -62,6 +62,75 @@ def debug_log(msg):
     with open("debug_log.txt", "a") as debug_file:
         debug_file.write(f"ss_trainer_ETP: {msg} \n")
 
+def _get_og_config(scene_name, obj_config): #config preprossing
+    import omnigibson as og
+    import yaml
+    cfg = {
+        "scene": {
+            "type": "InteractiveTraversableScene",
+            "scene_model": scene_name,
+            #"load_room_types": ['kitchen', 'living_room'],
+            #"load_room_types": ['living_room'], #Workaround: to speed up scene loading
+            #"load_room_types": ['kitchen'], #Workaround: to speed up scene loading
+            #"trav_map_resolution": 0.01, # meter per pixel, default is 0.1
+        },
+        "robots": [
+            {
+                "type": "Fetch",
+                "obs_modalities": ["rgb"],
+                #"default_arm_pose": "diagonal30",
+                #"default_reset_mode": "tuck",
+                "action_type":"continuous",
+                "action_normalize":True,
+                "grasping_mode":'physical',
+                "position": [0.0, 0.0, 0.0],  # Adjusted position
+                #"orientation": [0.9914, 0, 0, 0.1305], #15 deg, Fetch disappeared
+                #"orientation": [0.5258, 0, 0, 0.8506], #116 deg
+                #"orientation": [0.7071, 0, 0, 0.7071], #90 deg
+                #"orientation": [0.8660, 0, 0, 0.5000], #60 deg
+                #Bug: The position/orientation modification never works for some reason, rotate the robot as a workaround
+                
+            },
+        ],
+        "task":{
+            'type': "GraspTask",
+            'obj_name': obj_config['name'],
+            'objects_config':[obj_config],
+        },
+        "objects":[
+            { #https://github.com/StanfordVL/OmniGibson/blob/main/omnigibson/examples/action_primitives/solve_simple_task.py
+                "type": "DatasetObject",
+                "name": "cologne",
+                "category": "bottle_of_cologne",
+                "model": "lyipur",
+                "position": [-0.5, -1.2, 0.5],
+                "orientation": [0, 0, 0, 1],
+            },
+        ],
+    }
+
+    #replace the robot config with Fetch built-in
+    fetch_config_filename = os.path.join(og.example_config_path, "fetch_primitives.yaml")
+    fetch_config = yaml.load(open(fetch_config_filename, "r"), Loader=yaml.FullLoader)
+    cfg['robots'] = fetch_config['robots']
+    #cfg['robots'][0]['position'] = [1.0, 1.0, 0.0]
+    return cfg
+
+
+def get_temp_og_cfg():
+    import omnigibson as og
+    robot_position = [-1,2.5]
+    scene_name = 'Rs_int'
+    obj_config = {'pos': [-0.01513892412185669, 1.4189201593399048, 1.0810081958770752], 'ori': [0.5094113349914551, -0.07470039278268814, 0.2355378270149231, -0.824282705783844], 'init_info': {'class_module': 'omnigibson.objects.dataset_object', 'class_name': 'DatasetObject', 'args': {'name': 'wooden_spoon_83', 'category': 'wooden_spoon', 'model': 'aeubta', 'prim_type': 0, 'uuid': 36377017, 'scale': [1.0, 1.0, 1.0], 'in_rooms': ['kitchen_0', 'living_room_0']}}}
+    obj_config['category'] = obj_config['init_info']['args']['category']
+    obj_config['name'] = obj_config['init_info']['args']['name']
+    obj_config['type'] = "DatasetObject"
+    cfg = _get_og_config(scene_name, obj_config)
+    del cfg['task'] #Bug: The task triggers "Resetting error:  Could not infer dtype of JointPrim", don't know why
+    cfg['robots'][0]['position'] = [0,0,0]
+    cfg['robots'][0]['position'] = [robot_position[0], robot_position[1], cfg['robots'][0]['position'][2]]
+    print(cfg)
+    return cfg
 
 @baseline_registry.register_trainer(name="SS-ETP")
 class RLTrainer(BaseVLNCETrainer):
@@ -469,7 +538,8 @@ class RLTrainer(BaseVLNCETrainer):
 
         total_iter = self.config.IL.iters
         log_every  = self.config.IL.log_every
-        writer     = TensorboardWriter(self.config.TENSORBOARD_DIR if self.local_rank < 1 else None)
+        #writer     = TensorboardWriter(self.config.TENSORBOARD_DIR if self.local_rank < 1 else None)
+        writer = None
 
         self.scaler = GradScaler()
         logger.info('Traning Starts... GOOD LUCK!')
@@ -486,7 +556,7 @@ class RLTrainer(BaseVLNCETrainer):
                 for k, v in logs.items():
                     logs[k] = np.mean(v)
                     loss_str += f'{k}: {logs[k]:.3f}, '
-                    writer.add_scalar(f'loss/{k}', logs[k], cur_iter)
+                    #writer.add_scalar(f'loss/{k}', logs[k], cur_iter)
                 logger.info(loss_str)
                 self.save_checkpoint(cur_iter)
         
@@ -525,8 +595,10 @@ class RLTrainer(BaseVLNCETrainer):
     def _eval_checkpoint(
         self,
         checkpoint_path: str,
-        writer: TensorboardWriter,
+        #writer: TensorboardWriter,
+        writer: None, 
         checkpoint_index: int = 0,
+        og_envs=None
     ):
         if self.local_rank < 1:
             logger.info(f"checkpoint_path: {checkpoint_path}")
@@ -601,11 +673,12 @@ class RLTrainer(BaseVLNCETrainer):
             debug_log(f'_eval_checkpoint: enableing adapter')
             
             #test_og = True
-            test_og = False
-            if test_og:
+            #test_og = False
+            if og_envs:
                 debug_log(f"_eval_checkpoint: testing OG sim")
-                og_cfg_path = 'og/configs/test_cfg.yaml'
-                self.envs = SimulatorAdapter(config=og_cfg_path, simulator_type="omnigibson")
+                #og_cfg_path = 'og/configs/test_cfg.yaml'
+                #og_cfg = get_temp_og_cfg()
+                self.envs = SimulatorAdapter(config=og_envs, simulator_type="omnigibson")
             else:
                 self.envs = SimulatorAdapter(config=self.config, simulator_type="Habitat")
 
@@ -645,7 +718,7 @@ class RLTrainer(BaseVLNCETrainer):
             eps_to_eval = min(self.config.EVAL.EPISODE_COUNT, sum(self.envs.get_number_of_episodes()))
         self.stat_eps = {}
         self.pbar = tqdm.tqdm(total=eps_to_eval) if self.config.use_pbar else None
-
+        debug_log("_eval_checkpoint: before rollout")
         while len(self.stat_eps) < eps_to_eval:
             self.rollout('eval')
         self.envs.close()
@@ -692,7 +765,7 @@ class RLTrainer(BaseVLNCETrainer):
             checkpoint_num = checkpoint_index + 1
             for k, v in aggregated_states.items():
                 logger.info(f"Average episode {k}: {v:.6f}")
-                writer.add_scalar(f"eval_{k}/{split}", v, checkpoint_num)
+                #writer.add_scalar(f"eval_{k}/{split}", v, checkpoint_num)
 
     @torch.no_grad()
     def inference(self):
@@ -839,9 +912,11 @@ class RLTrainer(BaseVLNCETrainer):
         for r in self.gt_data['episodes']:
             new_gt_data[str(r['episode_id'])] = r
 
-
+        debug_log("rollout: resuming all")
         self.envs.resume_all()
+        debug_log("rollout: resetting env all")
         observations = self.envs.reset()
+        debug_log("rollout: env reset")
         instr_max_len = self.config.IL.max_text_len # r2r 80, rxr 200
         instr_pad_id = 1 if self.config.MODEL.task_type == 'rxr' else 0
         observations = extract_instruction_tokens(observations, self.config.TASK_CONFIG.TASK.INSTRUCTION_SENSOR_UUID,
@@ -900,6 +975,7 @@ class RLTrainer(BaseVLNCETrainer):
             txt_embeds = all_txt_embeds[not_done_index]
             
             # cand waypoint prediction
+            debug_log("rollout: predicting waypoints")
             wp_outputs = self.policy.net(
                 mode = "waypoint",
                 waypoint_predictor = self.waypoint_predictor,
@@ -912,7 +988,9 @@ class RLTrainer(BaseVLNCETrainer):
             vp_inputs.update({
                 'mode': 'panorama',
             })
+            debug_log("rollout: encoding pano")
             pano_embeds, pano_masks = self.policy.net(**vp_inputs)
+            debug_log("rollout: pano encoded")
             avg_pano_embeds = torch.sum(pano_embeds * pano_masks.unsqueeze(2), 1) / \
                               torch.sum(pano_masks, 1, keepdim=True)
 
