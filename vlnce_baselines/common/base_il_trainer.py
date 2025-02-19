@@ -29,7 +29,7 @@ from habitat_baselines.common.obs_transformers import (
     get_active_obs_transforms,
 )
 from habitat_extensions.measures import Position
-from habitat_baselines.common.tensorboard_utils import TensorboardWriter
+#from habitat_baselines.common.tensorboard_utils import TensorboardWriter
 from habitat_baselines.utils.common import batch_obs, generate_video
 from habitat_baselines.utils.common import (
     get_checkpoint_id,
@@ -261,7 +261,8 @@ class BaseVLNCETrainer(BaseILTrainer):
     def _eval_checkpoint(
         self,
         checkpoint_path: str,
-        writer: TensorboardWriter,
+        #writer: TensorboardWriter,
+        writer: None,
         checkpoint_index: int = 0,
     ) -> None:
         r"""Evaluates a single checkpoint.
@@ -587,7 +588,8 @@ class BaseVLNCETrainer(BaseILTrainer):
                                 current_episodes[i].episode_id
                             ]["spl"]
                         },
-                        tb_writer=writer,
+                        #tb_writer=writer,
+                        tb_writer=None,
                         fps=1,
                     )
 
@@ -691,7 +693,7 @@ class BaseVLNCETrainer(BaseILTrainer):
             checkpoint_num = checkpoint_index + 1
             for k, v in aggregated_stats.items():
                 logger.info(f"Average episode {k}: {v:.6f}")
-                writer.add_scalar(f"eval_{k}/{split}", v, checkpoint_num)
+                #writer.add_scalar(f"eval_{k}/{split}", v, checkpoint_num)
 
     def collect_infer_traj(self):
         from habitat_extensions.task import ALL_ROLES_MASK, RxRVLNCEDatasetV1
@@ -771,7 +773,7 @@ class BaseVLNCETrainer(BaseILTrainer):
 
         return trajectories
 
-    def eval(self):
+    def eval(self, og_envs=None):
         r"""Main method of trainer evaluation. Calls _eval_checkpoint() that
         is specified in Trainer class that inherits from BaseRLTrainer
         or BaseILTrainer
@@ -856,9 +858,8 @@ class BaseVLNCETrainer(BaseILTrainer):
             self.config.freeze()
         self.traj = self.collect_val_traj()
         
-        with TensorboardWriter(
-            self.config.TENSORBOARD_DIR, flush_secs=self.flush_secs
-        ) as writer:
+        #with TensorboardWriter(self.config.TENSORBOARD_DIR, flush_secs=self.flush_secs) as writer:
+        if 1:
             if os.path.isfile(self.config.EVAL.CKPT_PATH_DIR):
                 # evaluate singe checkpoint
                 # proposed_index = get_checkpoint_id(
@@ -870,8 +871,10 @@ class BaseVLNCETrainer(BaseILTrainer):
                 #     ckpt_idx = 0
                 self._eval_checkpoint(
                     self.config.EVAL.CKPT_PATH_DIR,
-                    writer,
+                    #writer,
+                    None,
                     checkpoint_index=self.get_ckpt_id(self.config.EVAL.CKPT_PATH_DIR),
+                    og_envs=og_envs
                 )
             else:
                 # evaluate multiple checkpoints in order
@@ -888,8 +891,10 @@ class BaseVLNCETrainer(BaseILTrainer):
                     prev_ckpt_ind += 1
                     self._eval_checkpoint(
                         checkpoint_path=current_ckpt,
-                        writer=writer,
+                        #writer=writer,
+                        writer=None,
                         checkpoint_index=self.get_ckpt_id(current_ckpt),
+                        og_envs=og_envs
                     )
 
     def get_ckpt_id(self, ckpt_path):

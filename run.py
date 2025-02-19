@@ -191,8 +191,8 @@ def run_exp(exp_name: str, exp_config: str,
         None.
     """
 
-    #og_test = True
-    og_test = False
+    og_test = True
+    #og_test = False
     if og_test:
         import threading
         env_lock = threading.Lock()

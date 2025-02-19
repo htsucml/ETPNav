@@ -12,6 +12,9 @@ random.seed(0)
 
 SLURM_JOBID = os.environ.get("SLURM_JOB_ID", None)
 
+def debug_log(msg):
+    with open("debug_log.txt", "a") as debug_file:
+        debug_file.write(f"env_utils: {msg} \n")
 
 def is_slurm_job() -> bool:
     return SLURM_JOBID is not None
@@ -115,6 +118,9 @@ def construct_envs(
 
     is_debug = True if sys.gettrace() else False
     env_entry = habitat.ThreadedVectorEnv #if is_debug else habitat.VectorEnv
+
+    debug_log(env_class)
+    
     envs = env_entry(
         make_env_fn=make_env_fn,
         env_fn_args=tuple(zip(configs, env_classes)), 

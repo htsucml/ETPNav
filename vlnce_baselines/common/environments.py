@@ -44,6 +44,7 @@ def calculate_vp_rel_pos(p1, p2, base_heading=0, base_elevation=0):
 @baseline_registry.register_env(name="VLNCEDaggerEnv")
 class VLNCEDaggerEnv(habitat.RLEnv):
     def __init__(self, config: Config, dataset: Optional[Dataset] = None):
+        
         super().__init__(config.TASK_CONFIG, dataset)
         self.prev_episode_id = "something different"
 

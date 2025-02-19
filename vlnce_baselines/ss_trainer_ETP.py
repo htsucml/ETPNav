@@ -262,7 +262,11 @@ class RLTrainer(BaseVLNCETrainer):
         action_space: Space,
     ):
         start_iter = 0
+        #print(f"_initialize_policy: policy: {self.config.MODEL.policy_name}, action_space: {action_space}, action_space.n: {action_space.n}, Module: {action_space.__class__.__module__}")
+        #action_space: ActionSpace(HIGHTOLOWEVAL:EmptySpace(), MOVE_FORWARD:EmptySpace(), STOP:EmptySpace(), TURN_LEFT:EmptySpace(), TURN_RIGHT:EmptySpace()), action_space.n: 5, Module: habitat.core.spaces
+        
         policy = baseline_registry.get_policy(self.config.MODEL.policy_name)
+        #policy: PolicyViewSelectionETP
         self.policy = policy.from_config(
             config=config,
             observation_space=observation_space,
@@ -684,6 +688,7 @@ class RLTrainer(BaseVLNCETrainer):
 
 
         #dataset_length = sum(self.envs.number_of_episodes)
+        print(f"dataset_lengths: {self.envs.get_number_of_episodes()}")
         dataset_length = sum(self.envs.get_number_of_episodes())
         print('local rank:', self.local_rank, '|', 'dataset length:', dataset_length)
 

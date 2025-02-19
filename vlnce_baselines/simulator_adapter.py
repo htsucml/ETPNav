@@ -1,7 +1,9 @@
 
+
 def debug_log(msg):
     with open("debug_log.txt", "a") as debug_file:
         debug_file.write(f"simulator_adapter: {msg} \n")
+        
 
 class SimulatorAdapter:
     def __init__(self, config, simulator_type="Habitat"):
@@ -40,6 +42,15 @@ class SimulatorAdapter:
             self.envs = config #directly pass og envs
             print("started omnigibson in simulationadapter")
             #self.envs = og.Environment(self.config)  # Placeholder for actual OG setup
+
+            '''
+            for _ in range(500):
+                print(f"action_space: self.envs.action_space")
+                action = self.envs.action_space.sample()
+                obs, rew, terminated, truncated, info = self.envs.step(action)
+                print(f"{_} step: Action:{action}, Obs:{obs}, Rew:{rew}, Terminated:{terminated}, Truncated: {truncated}, Info:{info}")
+            raise
+            '''
         else:
             raise ValueError(f"Unsupported simulator type: {self.simulator_type}")
 
@@ -47,7 +58,7 @@ class SimulatorAdapter:
         if self.simulator_type == "habitat":
             return self.envs.num_envs
         elif self.simulator_type == "omnigibson":
-            pass
+            return 1
         else:
             raise NotImplementedError
     
@@ -55,23 +66,68 @@ class SimulatorAdapter:
         if self.simulator_type == "habitat":
             return self.envs.number_of_episodes
         elif self.simulator_type == "omnigibson":
-            pass
+            return [1]
         else:
             raise NotImplementedError
     
     def get_observation_spaces(self):
         if self.simulator_type == "habitat":
+            print(f"self.envs.observation_spaces: {self.envs.observation_spaces}")
+            #print(f"self.envs.observation_spaces['rgb_210']: {self.envs.observation_spaces['rgb_210']}")
+            #print(f"self.envs.observation_spaces['rgb_210']: {self.envs.observation_spaces['rgb_210']}")
             return self.envs.observation_spaces
-        elif self.simulator_type == "omnigibson":
-            pass
+        elif self.simulator_type == "omnigibson":            
+            from gym.spaces import Dict, Box, Discrete
+            import numpy as np
+
+            observation_spaces = [Dict({
+                'depth': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_120': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_150': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_180': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_210': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_240': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_270': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_30': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_300': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_330': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_60': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_90': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'instruction': Discrete(4),
+                'rgb': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_120': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_150': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_180': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_210': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_240': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_270': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_30': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_300': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_330': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_60': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_90': Box(0, 255, (224, 224, 3), dtype=np.uint8)
+            })]
+
+            return observation_spaces
         else:
             raise NotImplementedError
     
     def get_action_spaces(self):
         if self.simulator_type == "habitat":
+            print(f"self.envs.action_spaces: {self.envs.action_spaces}")
             return self.envs.action_spaces 
         elif self.simulator_type == "omnigibson":
-            pass
+            from gym.spaces import Dict
+            from habitat.core.spaces import ActionSpace, EmptySpace
+            action_space = {
+                "HIGHTOLOWEVAL": EmptySpace(),
+                "MOVE_FORWARD": EmptySpace(),
+                "STOP": EmptySpace(),
+                "TURN_LEFT": EmptySpace(),
+                "TURN_RIGHT": EmptySpace(),
+            }
+            action_space = [ActionSpace(action_space)]
+            return action_space
         else:
             raise NotImplementedError
     
@@ -85,6 +141,7 @@ class SimulatorAdapter:
             #debug_log(f"reset type(ret[0][0]): {type(ret[0][0])}")
             return ret
         elif self.simulator_type == "omnigibson":
+            raise
             return self.envs.reset()
         else:
             raise NotImplementedError
