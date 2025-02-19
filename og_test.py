@@ -163,9 +163,12 @@ def save_video(video_cache, save_path):
         video_writer.append_data(rgb)
     video_writer.close()
 
+
+
 def main():
     #- Setup the config and initialize the env,
     robot_position = [-1,2.5]
+    #robot_position = [0., 0., 0.]
     scene_name = 'Rs_int'
     obj_config = {'pos': [-0.01513892412185669, 1.4189201593399048, 1.0810081958770752], 'ori': [0.5094113349914551, -0.07470039278268814, 0.2355378270149231, -0.824282705783844], 'init_info': {'class_module': 'omnigibson.objects.dataset_object', 'class_name': 'DatasetObject', 'args': {'name': 'wooden_spoon_83', 'category': 'wooden_spoon', 'model': 'aeubta', 'prim_type': 0, 'uuid': 36377017, 'scale': [1.0, 1.0, 1.0], 'in_rooms': ['kitchen_0', 'living_room_0']}}}
     obj_config['category'] = obj_config['init_info']['args']['category']
@@ -180,11 +183,100 @@ def main():
     
     print(cfg)
     env = og.Environment(configs=cfg)
-
     scene = env.scene
     robot = env.robots[0]
     sim = og.sim
     standability_map = env.scene.trav_map
+
+
+    ####camera test
+
+    #print(robot.sensors)
+    #print(robot.sensors.keys())
+    #raise
+
+    #obs = robot.sensors['robot_pphwnd:eyes:Camera:0'].get_obs()[0]['rgb']
+
+    '''#camera test 1: rotation
+    camera = list(robot.sensors.values())[0]
+    yaw_angles = np.arange(0, 360, 30)
+    rgb_images = []
+    #for yaw in yaw_angles:
+    for i in range(13):
+        
+        #quaternion = euler.euler2quat(0, 0, yaw)
+        #camera.set_orientation(quaternion)  # Rotate camera
+        #env.step()
+        sim.step()
+        rgb_obs = camera.get_obs()[0]["rgb"]
+        rgb_image = np.array(rgb_obs * 255).astype(np.uint8)
+        rgb_images.append(rgb_image)
+        turn_right(camera, delta=np.pi/6)
+    # Save image
+    stitched_image = cv2.hconcat(rgb_images) 
+    #cv2.imwrite("viewer_camera.png", cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR))
+    cv2.imwrite('test_og_camera_pano.jpg', cv2.cvtColor(stitched_image, cv2.COLOR_RGB2BGR))
+    '''
+    
+
+
+    from omnigibson.sensors import VisionSensor
+    from omnigibson.utils.transform_utils import euler2quat, quat_multiply
+    import torch
+    viewer_camera = og.sim.viewer_camera
+
+    camera_fov = 90  # Field of View similar to MP3D/HM3D
+    image_size = (224, 224)  # Target image size
+    # Yaw angles for 30-degree increments
+    yaw_angles = np.arange(0, 360, 30)  # [0, 30, 60, ..., 330]
+
+
+    robot_pos = robot.get_position()
+    base_ori = robot.get_orientation()
+    quat_init = viewer_camera.get_position_orientation()[1]
+    # List to store images
+    pano_images = []
+    
+    for yaw in yaw_angles:
+        # Rotate the camera
+        #rotated_ori = base_ori * euler2quat(torch.tensor([0, 0, np.radians(yaw)]))
+
+        #viewer_camera.set_orientation(rotated_ori)
+
+        
+        
+        #inp = torch.tensor([-delta, 0, 0], dtype=torch.float32)
+        #viewer_camera.set_position(robot_pos + np.array([0, 0, 1.5]))  # Adjust height
+        viewer_camera.set_position(np.array([0, 0, 1.5]))  # Adjust height
+        inp = torch.tensor([0, 0, np.radians(yaw)], dtype=torch.float32)
+        #quat = quat_multiply((euler2quat(-delta, 0, 0)), quat)
+        quat = quat_multiply((euler2quat(inp)), quat_init)
+        viewer_camera.set_position_orientation(orientation=quat)
+
+
+        sim.step()
+        print(f"camera {viewer_camera.get_position(), viewer_camera.get_orientation()}")
+
+        # Capture image
+        rgb_obs = viewer_camera.get_obs()[0]["rgb"]
+        rgb_image = np.array(rgb_obs * 255).astype(np.uint8)
+        pano_images.append(rgb_image)
+
+    # Stitch images horizontally
+    #panorama = cv2.hconcat(pano_images)
+
+
+    #cv2.waitKey(0)
+
+    stitched_image = cv2.hconcat(pano_images) 
+    output_path = "test_og_camera_pano_3.jpg"  # Set your desired filename
+    #cv2.imwrite(output_path, cv2.cvtColor(stitched_image, cv2.COLOR_RGB2BGR))
+    cv2.imwrite(output_path, stitched_image)
+    raise
+
+    ####</camera test
+
+    
 
     # Allow user to move camera more easily
     og.sim.enable_viewer_camera_teleoperation()
