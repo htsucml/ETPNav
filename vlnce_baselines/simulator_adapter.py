@@ -41,6 +41,50 @@ class SimulatorAdapter:
             debug_log(f"omnigibson config: {self.config}")
             self.envs = config #directly pass og envs
             print("started omnigibson in simulationadapter")
+
+            from gym.spaces import Dict, Box, Discrete
+            import numpy as np
+
+            self.observation_spaces = [Dict({
+                'depth': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_120': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_150': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_180': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_210': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_240': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_270': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_30': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_300': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_330': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_60': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'depth_90': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
+                'instruction': Discrete(4),
+                'rgb': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_120': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_150': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_180': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_210': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_240': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_270': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_30': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_300': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_330': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_60': Box(0, 255, (224, 224, 3), dtype=np.uint8),
+                'rgb_90': Box(0, 255, (224, 224, 3), dtype=np.uint8)
+            })]
+
+            from gym.spaces import Dict
+            from habitat.core.spaces import ActionSpace, EmptySpace
+            action_space = {
+                "HIGHTOLOWEVAL": EmptySpace(),
+                "MOVE_FORWARD": EmptySpace(),
+                "STOP": EmptySpace(),
+                "TURN_LEFT": EmptySpace(),
+                "TURN_RIGHT": EmptySpace(),
+            }
+            self.action_space = [ActionSpace(action_space)]
+
+
             #self.envs = og.Environment(self.config)  # Placeholder for actual OG setup
 
             '''
@@ -77,38 +121,8 @@ class SimulatorAdapter:
             #print(f"self.envs.observation_spaces['rgb_210']: {self.envs.observation_spaces['rgb_210']}")
             return self.envs.observation_spaces
         elif self.simulator_type == "omnigibson":            
-            from gym.spaces import Dict, Box, Discrete
-            import numpy as np
 
-            observation_spaces = [Dict({
-                'depth': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_120': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_150': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_180': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_210': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_240': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_270': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_30': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_300': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_330': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_60': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'depth_90': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
-                'instruction': Discrete(4),
-                'rgb': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_120': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_150': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_180': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_210': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_240': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_270': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_30': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_300': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_330': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_60': Box(0, 255, (224, 224, 3), dtype=np.uint8),
-                'rgb_90': Box(0, 255, (224, 224, 3), dtype=np.uint8)
-            })]
-
-            return observation_spaces
+            return self.observation_spaces
         else:
             raise NotImplementedError
     
@@ -117,19 +131,68 @@ class SimulatorAdapter:
             print(f"self.envs.action_spaces: {self.envs.action_spaces}")
             return self.envs.action_spaces 
         elif self.simulator_type == "omnigibson":
-            from gym.spaces import Dict
-            from habitat.core.spaces import ActionSpace, EmptySpace
-            action_space = {
-                "HIGHTOLOWEVAL": EmptySpace(),
-                "MOVE_FORWARD": EmptySpace(),
-                "STOP": EmptySpace(),
-                "TURN_LEFT": EmptySpace(),
-                "TURN_RIGHT": EmptySpace(),
-            }
-            action_space = [ActionSpace(action_space)]
-            return action_space
+            return self.action_space
         else:
             raise NotImplementedError
+    
+    
+    def _get_observations(self, keys=None):
+        assert self.simulator_type == "omnigibson"
+        if keys is None:
+            keys = self.get_observation_spaces()[0].keys()
+        observations = {k:None for k in keys}
+
+        from omnigibson.sensors import VisionSensor
+        from omnigibson.utils.transform_utils import euler2quat, quat_multiply
+        import torch
+        import numpy as np
+        import cv2
+        import omnigibson as og
+        sim = og.sim
+        robot = self.envs.robots[0]
+        viewer_camera = og.sim.viewer_camera
+        print(f"sim viewer resolution: {sim.viewer_width}x{sim.viewer_height}")
+
+        def process_image(rgb_obs):
+            print(f"rgb_obs {rgb_obs}")
+            rgb_image = np.array(rgb_obs).astype(np.uint8)
+            #rgb_image = np.array(rgb_obs * 255).astype(np.uint8)
+            return rgb_image
+
+        def get_pseudo_pano(robot, viewer_camera):
+            #yaw_angles = np.arange(0, 360, 30)  # [0, 30, 60, ..., 330]
+            robot_pos = robot.get_position()
+            quat_init = viewer_camera.get_position_orientation()[1]
+            #pano_images = [process_image(viewer_camera.get_obs()[0]["rgb"])]
+            pano_images = []
+            sim.step()
+            for yaw_idx in range(13):
+                yaw = 30 + yaw_idx*30
+                #viewer_camera.set_position()  # Adjust height
+                robot_position = np.array([robot_pos[0], robot_pos[1], 1.5])
+                inp = torch.tensor([0, 0, np.radians(yaw)], dtype=torch.float32)
+                quat = quat_multiply((euler2quat(inp)), quat_init)
+                viewer_camera.set_position_orientation(position=robot_position, orientation=quat)
+                sim.step()
+                print(f"camera {yaw} {viewer_camera.get_position(), viewer_camera.get_orientation()}")
+
+                # Capture image
+                rgb_obs = viewer_camera.get_obs()[0]["rgb"]
+                rgb_image = process_image(rgb_obs)
+                pano_images.append(rgb_image)
+            pano_images = pano_images[1:]
+            #This is a workaround of an unknown bug causing the first frame = default view frame
+            return pano_images
+
+        pano_images = get_pseudo_pano(robot, viewer_camera)
+        stitched_image = cv2.hconcat(pano_images) 
+        output_path = "test_og_camera_in_sa_pano_3.jpg"
+        cv2.imwrite(output_path, cv2.cvtColor(stitched_image, cv2.COLOR_RGB2BGR))
+        for idx, angle in enumerate(range(0, 360, 30)):
+            k = f'rgb_{angle}' if angle!=0 else 'rgb'
+            observations[k] = pano_images[idx]
+
+        return observations
     
     def reset(self):
         """
@@ -141,8 +204,8 @@ class SimulatorAdapter:
             #debug_log(f"reset type(ret[0][0]): {type(ret[0][0])}")
             return ret
         elif self.simulator_type == "omnigibson":
-            raise
-            return self.envs.reset()
+            ret = self._get_observations()
+            return ret
         else:
             raise NotImplementedError
 
@@ -167,6 +230,10 @@ class SimulatorAdapter:
             #debug_log(f"type(ret[0][0]), {type(ret[0][0])}") #h-Observations
             #debug_log(f"ret[0][0].keys(), {ret[0][0].keys()}") #h-Observations
             #dict_keys(['rgb', 'depth', 'rgb_30', 'rgb_60', 'rgb_90', 'rgb_120', 'rgb_150', 'rgb_180', 'rgb_210', 'rgb_240', 'rgb_270', 'rgb_300', 'rgb_330', 'depth_30', 'depth_60', 'depth_90', 'depth_120', 'depth_150', 'depth_180', 'depth_210', 'depth_240', 'depth_270', 'depth_300', 'depth_330', 'instruction']) 
+            #for k,v in ret[0][0].items():
+                #print(f"step: {k}, {type(v)}")
+                #print(v if type(v) is dict else v.shape)
+            #raise
             #debug_log(f"type(ret[0][1]), {type(ret[0][1])}") #float
             #debug_log(f"type(ret[0][2]), {type(ret[0][2])}") #bool, Task done?
             #debug_log(f"type(ret[0][3]), {type(ret[0][3])}") #h-Metrics
