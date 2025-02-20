@@ -184,6 +184,8 @@ class SimulatorAdapter:
 
                 # Capture image
                 rgb_obs = viewer_camera.get_obs()[0]["rgb"]
+                rgb_obs = rgb_obs[:, :, :3]
+                print("!!WARNING!!: dropping last channel (assuming alpha) of RGB!")
                 rgb_image = process_image(rgb_obs)
                 pano_images.append(rgb_image)
             pano_images = pano_images[1:]
@@ -266,10 +268,14 @@ class SimulatorAdapter:
         
     def call_at(self, idx, instr, input_dict=None):
         if self.simulator_type == "habitat":
+            print(f"SimulatorAdapter: call instr: {instr}")
             if input_dict:
-                return self.envs.call_at(idx, instr, input_dict)
+                print(f"SimulatorAdapter: call input_dict:{input_dict}")
+                ret = self.envs.call_at(idx, instr, input_dict)
             else:
-                return self.envs.call_at(idx, instr)
+                ret =  self.envs.call_at(idx, instr)
+            print(f"SimulatorAdapter: call ret:{ret}")
+            return ret
         elif self.simulator_type == "omnigibson":
             pass #placeholder
         else:
@@ -281,11 +287,26 @@ class SimulatorAdapter:
         # rollout envs.call_at(i, "get_cand_real_pos", {"angle": ang, "forward": dis})
     def call(self, instr, kargs=None):
         if self.simulator_type == "habitat":
+            print(f"SimulatorAdapter: call instr: {instr}")
             if kargs:
-                return self.envs.call(instr, kargs)
+                print(f"SimulatorAdapter: call kargs:{kargs}")
+                ret = self.envs.call(instr, kargs)
             else:
-                return self.envs.call(instr)
+                ret =  self.envs.call(instr)
+            print(f"SimulatorAdapter: call ret:{ret}")
+            print(f"SimulatorAdapter: call ret[0]:{ret[0]}")
+            #print(f"SimulatorAdapter: call ret[1]:{ret[1]}")
+            return ret
         elif self.simulator_type == "omnigibson":
+            if instr==['get_pos_ori']:
+                robot = self.envs.robots[0]
+                position, orientation = robot.get_position_orientation()
+                ret = [(position.cpu().numpy(), orientation.cpu().numpy())]
+                print(f"SimulatorAdapter: call ret[0]: position{ret[0]}")
+                #print(f"SimulatorAdapter: call ret[1]: position{position_orientation[1]}")
+                return ret
+            else:
+                return NotImplementedError
             pass #placeholder
         else:
             raise NotImplementedError

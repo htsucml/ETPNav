@@ -927,6 +927,7 @@ class RLTrainer(BaseVLNCETrainer):
         observations = extract_instruction_tokens(observations, self.config.TASK_CONFIG.TASK.INSTRUCTION_SENSOR_UUID,
                                                   max_length=instr_max_len, pad_id=instr_pad_id)
         
+        '''
         print(f"rollout observations[0]")
         for k,v in observations[0].items():
             print(f"key: {k}")
@@ -935,6 +936,7 @@ class RLTrainer(BaseVLNCETrainer):
                     print(f"shape: {v.shape}")
                 except AttributeError:
                     print(f"len: {len(v)}, {v}")
+        '''
         #print(f"rollout observations[0][0].keys(): {observations[0][0].keys()}")
         batch = batch_obs(observations, self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
@@ -992,6 +994,17 @@ class RLTrainer(BaseVLNCETrainer):
             
             # cand waypoint prediction
             debug_log("rollout: predicting waypoints")
+            #print(f"rollout: batch[0]{batch[0]}")
+            '''
+            print(f"rollout batch[0]")
+            for k,v in batch[0].items():
+                print(f"key: {k}")
+                if v is not None:
+                    try:
+                        print(f"shape: {v.shape}")
+                    except AttributeError:
+                        print(f"len: {len(v)}, {v}")
+            '''
             wp_outputs = self.policy.net(
                 mode = "waypoint",
                 waypoint_predictor = self.waypoint_predictor,
