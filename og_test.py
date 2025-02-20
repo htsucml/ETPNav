@@ -26,9 +26,15 @@ import time
 
 gm.USE_GPU_DYNAMICS = False
 gm.ENABLE_FLATCACHE = True
+gm.DEFAULT_VIEWER_WIDTH = 224
+gm.DEFAULT_VIEWER_HEIGHT = 224
 
 def get_config(scene_name, obj_config): #config preprossing
     cfg = {
+        "render":{
+            "viewer_width": 224,
+            "viewer_height": 224,
+        },
         "scene": {
             "type": "InteractiveTraversableScene",
             "scene_model": scene_name,
@@ -144,6 +150,11 @@ def main():
     from omnigibson.utils.transform_utils import euler2quat, quat_multiply
     import torch
     viewer_camera = og.sim.viewer_camera
+    #viewer_camera.viewer_width = 224
+    #viewer_camera.viewer_height = 224
+    print(f"sim viewer resolution: {sim.viewer_width}x{sim.viewer_height}")
+    #print(f"viewer resolution: {viewer_camera}x{sim.viewer_height}")
+
 
     camera_fov = 90  # Field of View similar to MP3D/HM3D
     image_size = (224, 224)  # Target image size
