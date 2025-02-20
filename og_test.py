@@ -83,58 +83,6 @@ def execute_controller(ctrl_gen, env): #controller for grasping task, executing 
     for action in ctrl_gen:
         env.step(action)
 
-def get_standable_points(obj, standability_map, robot_z, grid_size=0.1, max_distance=3.0): 
-    #ChatGPT generated function for debugging, could merge or be replaced with get_points_in_surrounding_circle
-    """
-    Finds standable points around a given object using a grid-based search.
-
-    Args:
-        obj: The target DatasetObject.
-        standability_map: Function that returns True if a point is standable.
-        grid_size: Grid resolution (default: 0.1m).
-        max_distance: Maximum distance from the object (default: 3m).
-
-    Returns:
-        List of standable (x, y, z) positions.
-    """
-    standable_points = []
-
-    # Get object bounding box (center, orientation, extent)
-    bbox_center, _, bbox_extent, _ = obj.get_base_aligned_bbox()
-
-    # Compute min/max bounding box corners
-    obj_bbox_min = bbox_center - bbox_extent / 2
-    obj_bbox_max = bbox_center + bbox_extent / 2
-
-    # Define grid search area
-    x_range = np.arange(obj_bbox_min[0] - max_distance, obj_bbox_max[0] + max_distance, grid_size)
-    y_range = np.arange(obj_bbox_min[1] - max_distance, obj_bbox_max[1] + max_distance, grid_size)
-
-    for x in x_range:
-        for y in y_range:
-            #z = obj_bbox_min[2]  # Use the object's base height
-            z = robot_z
-            # Check distance to object center
-            if np.linalg.norm([x - bbox_center[0], y - bbox_center[1]]) > max_distance:
-                continue  # Skip if too far
-
-            # Check if the position is standable
-            #if standability_map([x, y, z]) and sim.scene.valid_position([x, y, z]):
-            floor = 0 #TODO: dynamically get the floor
-            pixel = standability_map.world_to_map([x,y,z])
-            if standability_map.floor_map[floor][int(pixel[0]), int(pixel[1])] == 0:
-                continue
-            standable_points.append([x, y, z])
-
-    return standable_points
-
-def pause():
-    #For debugging in simulation
-    print("Simulation paused.")
-    while True:
-        user_input = input("Press ENTER to resume, type 'exit' to quit: ")
-        if user_input.lower() == "exit":
-            break
 
 def pause_for_interaction(sim, print_position=False): #Pause function that allows keyboard interaction
     for i in range(10000):
@@ -166,21 +114,22 @@ def save_video(video_cache, save_path):
 
 
 def main():
-    #- Setup the config and initialize the env,
-    robot_position = [-1,2.5]
-    #robot_position = [0., 0., 0.]
+    #### Setup the config and initialize the env, ####  
     scene_name = 'Rs_int'
     obj_config = {'pos': [-0.01513892412185669, 1.4189201593399048, 1.0810081958770752], 'ori': [0.5094113349914551, -0.07470039278268814, 0.2355378270149231, -0.824282705783844], 'init_info': {'class_module': 'omnigibson.objects.dataset_object', 'class_name': 'DatasetObject', 'args': {'name': 'wooden_spoon_83', 'category': 'wooden_spoon', 'model': 'aeubta', 'prim_type': 0, 'uuid': 36377017, 'scale': [1.0, 1.0, 1.0], 'in_rooms': ['kitchen_0', 'living_room_0']}}}
     obj_config['category'] = obj_config['init_info']['args']['category']
     obj_config['name'] = obj_config['init_info']['args']['name']
     obj_config['type'] = "DatasetObject"
-    cfg = get_config(scene_name, obj_config)
-    
-    
+    cfg = get_config(scene_name, obj_config)       
     del cfg['task'] #Bug: The task triggers "Resetting error:  Could not infer dtype of JointPrim", don't know why
+    
+    #### Position the robot ####
+    robot_position = [-1,2.5]
+    #robot_position = [0., 0., 0.]
     cfg['robots'][0]['position'] = [0,0,0]
     cfg['robots'][0]['position'] = [robot_position[0], robot_position[1], cfg['robots'][0]['position'][2]]
     
+    #### Setup the env and variables
     print(cfg)
     env = og.Environment(configs=cfg)
     scene = env.scene
@@ -189,36 +138,7 @@ def main():
     standability_map = env.scene.trav_map
 
 
-    ####camera test
-
-    #print(robot.sensors)
-    #print(robot.sensors.keys())
-    #raise
-
-    #obs = robot.sensors['robot_pphwnd:eyes:Camera:0'].get_obs()[0]['rgb']
-
-    '''#camera test 1: rotation
-    camera = list(robot.sensors.values())[0]
-    yaw_angles = np.arange(0, 360, 30)
-    rgb_images = []
-    #for yaw in yaw_angles:
-    for i in range(13):
-        
-        #quaternion = euler.euler2quat(0, 0, yaw)
-        #camera.set_orientation(quaternion)  # Rotate camera
-        #env.step()
-        sim.step()
-        rgb_obs = camera.get_obs()[0]["rgb"]
-        rgb_image = np.array(rgb_obs * 255).astype(np.uint8)
-        rgb_images.append(rgb_image)
-        turn_right(camera, delta=np.pi/6)
-    # Save image
-    stitched_image = cv2.hconcat(rgb_images) 
-    #cv2.imwrite("viewer_camera.png", cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR))
-    cv2.imwrite('test_og_camera_pano.jpg', cv2.cvtColor(stitched_image, cv2.COLOR_RGB2BGR))
-    '''
-    
-
+    #### Camera test ####
 
     from omnigibson.sensors import VisionSensor
     from omnigibson.utils.transform_utils import euler2quat, quat_multiply
@@ -228,50 +148,50 @@ def main():
     camera_fov = 90  # Field of View similar to MP3D/HM3D
     image_size = (224, 224)  # Target image size
     # Yaw angles for 30-degree increments
-    yaw_angles = np.arange(0, 360, 30)  # [0, 30, 60, ..., 330]
 
-
-    robot_pos = robot.get_position()
-    base_ori = robot.get_orientation()
-    quat_init = viewer_camera.get_position_orientation()[1]
-    # List to store images
-    pano_images = []
-    
-    for yaw in yaw_angles:
-        # Rotate the camera
-        #rotated_ori = base_ori * euler2quat(torch.tensor([0, 0, np.radians(yaw)]))
-
-        #viewer_camera.set_orientation(rotated_ori)
-
-        
-        
-        #inp = torch.tensor([-delta, 0, 0], dtype=torch.float32)
-        #viewer_camera.set_position(robot_pos + np.array([0, 0, 1.5]))  # Adjust height
-        viewer_camera.set_position(np.array([0, 0, 1.5]))  # Adjust height
-        inp = torch.tensor([0, 0, np.radians(yaw)], dtype=torch.float32)
-        #quat = quat_multiply((euler2quat(-delta, 0, 0)), quat)
-        quat = quat_multiply((euler2quat(inp)), quat_init)
-        viewer_camera.set_position_orientation(orientation=quat)
-
-
-        sim.step()
-        print(f"camera {viewer_camera.get_position(), viewer_camera.get_orientation()}")
-
-        # Capture image
-        rgb_obs = viewer_camera.get_obs()[0]["rgb"]
+    def process_image(rgb_obs):
         rgb_image = np.array(rgb_obs * 255).astype(np.uint8)
-        pano_images.append(rgb_image)
+        return rgb_image
 
-    # Stitch images horizontally
-    #panorama = cv2.hconcat(pano_images)
+    def get_pseudo_pano(robot, viewer_camera):
+        #yaw_angles = np.arange(0, 360, 30)  # [0, 30, 60, ..., 330]
+        robot_pos = robot.get_position()
+        quat_init = viewer_camera.get_position_orientation()[1]
+        #pano_images = [process_image(viewer_camera.get_obs()[0]["rgb"])]
+        pano_images = []
+        sim.step()
+        for yaw_idx in range(13):
+            yaw = 30 + yaw_idx*30
+            #viewer_camera.set_position()  # Adjust height
+            robot_position = np.array([robot_pos[0], robot_pos[1], 1.5])
+            inp = torch.tensor([0, 0, np.radians(yaw)], dtype=torch.float32)
+            quat = quat_multiply((euler2quat(inp)), quat_init)
+            viewer_camera.set_position_orientation(position=robot_position, orientation=quat)
+            sim.step()
+            print(f"camera {yaw} {viewer_camera.get_position(), viewer_camera.get_orientation()}")
 
+            # Capture image
+            rgb_obs = viewer_camera.get_obs()[0]["rgb"]
+            rgb_image = process_image(rgb_obs)
+            pano_images.append(rgb_image)
+        pano_images = pano_images[1:]
+        #This is a workaround of an unknown bug causing the first frame = default view frame
+        return pano_images
+    
 
-    #cv2.waitKey(0)
-
+    pano_images = get_pseudo_pano(robot, viewer_camera)
     stitched_image = cv2.hconcat(pano_images) 
-    output_path = "test_og_camera_pano_3.jpg"  # Set your desired filename
-    #cv2.imwrite(output_path, cv2.cvtColor(stitched_image, cv2.COLOR_RGB2BGR))
-    cv2.imwrite(output_path, stitched_image)
+    output_path = "test_og_camera_pano_3.jpg" 
+
+    for robot_position in [[0.0,0.0]]:
+        new_position = robot_position + [robot.get_position()[2]]
+        robot.set_position(new_position)
+        sim.step()
+        pano_images = get_pseudo_pano(robot, viewer_camera)
+        stitched_image = cv2.hconcat(pano_images) 
+        output_path = f"test_og_camera_pano_3_{robot.get_position()}.jpg"  # Set your desired filename
+        #cv2.imwrite(output_path, cv2.cvtColor(stitched_image, cv2.COLOR_RGB2BGR))
+        cv2.imwrite(output_path, stitched_image)
     raise
 
     ####</camera test
