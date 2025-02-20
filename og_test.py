@@ -150,7 +150,9 @@ def main():
     # Yaw angles for 30-degree increments
 
     def process_image(rgb_obs):
-        rgb_image = np.array(rgb_obs * 255).astype(np.uint8)
+        print(f"rgb_obs {rgb_obs}")
+        rgb_image = np.array(rgb_obs).astype(np.uint8)
+        #rgb_image = np.array(rgb_obs * 255).astype(np.uint8)
         return rgb_image
 
     def get_pseudo_pano(robot, viewer_camera):
@@ -182,7 +184,8 @@ def main():
     pano_images = get_pseudo_pano(robot, viewer_camera)
     stitched_image = cv2.hconcat(pano_images) 
     output_path = "test_og_camera_pano_3.jpg" 
-
+    cv2.imwrite(output_path, cv2.cvtColor(stitched_image, cv2.COLOR_RGB2BGR))
+    ''' #movement test
     for robot_position in [[0.0,0.0]]:
         new_position = robot_position + [robot.get_position()[2]]
         robot.set_position(new_position)
@@ -192,6 +195,7 @@ def main():
         output_path = f"test_og_camera_pano_3_{robot.get_position()}.jpg"  # Set your desired filename
         #cv2.imwrite(output_path, cv2.cvtColor(stitched_image, cv2.COLOR_RGB2BGR))
         cv2.imwrite(output_path, stitched_image)
+    '''
     raise
 
     ####</camera test
