@@ -5,6 +5,11 @@ def debug_log(msg):
         debug_file.write(f"simulator_adapter: {msg} \n")
         
 
+class OGEpisode:
+    def __init__(self):
+        self.episode_id = 48763 #random placeholder 
+
+
 class SimulatorAdapter:
     def __init__(self, config, simulator_type="Habitat"):
         """
@@ -83,6 +88,7 @@ class SimulatorAdapter:
                 "TURN_RIGHT": EmptySpace(),
             }
             self.action_space = [ActionSpace(action_space)]
+            self.episodes = [OGEpisode()]
 
 
             #self.envs = og.Environment(self.config)  # Placeholder for actual OG setup
@@ -191,7 +197,13 @@ class SimulatorAdapter:
         for idx, angle in enumerate(range(0, 360, 30)):
             k = f'rgb_{angle}' if angle!=0 else 'rgb'
             observations[k] = pano_images[idx]
+            k = f'depth_{angle}' if angle!=0 else 'depth'
+            print("WARNING: _get_observations: using all zeros as depth placeholder")
+            observations[k] = torch.zeros([256, 256, 1])
 
+        print("WARN: Using placeholders as the instruction, should be fixed later")
+        instr = {'text': 'Walk forward down the hall past the table on the left. Continue going forward to you reach the open doorway to the left. Turn left and walk forward, stop in front of the doorway to the bathroom. Turn right and enter that hallway stop and wait in front of the sink on your right. ', 'tokens': [101, 3328, 2830, 2091, 1996, 2534, 2627, 1996, 2795, 2006, 1996, 2187, 1012, 3613, 2183, 2830, 2000, 2017, 3362, 1996, 2330, 7086, 2000, 1996, 2187, 1012, 2735, 2187, 1998, 3328, 2830, 1010, 2644, 1999, 2392, 1997, 1996, 7086, 2000, 1996, 5723, 1012, 2735, 2157, 1998, 4607, 2008, 6797, 2644, 1998, 3524, 1999, 2392, 1997, 1996, 7752, 2006, 2115, 2157, 1012, 102, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'trajectory_id': 1660}
+        observations['instruction'] = instr
         return observations
     
     def reset(self):
@@ -204,7 +216,7 @@ class SimulatorAdapter:
             #debug_log(f"reset type(ret[0][0]): {type(ret[0][0])}")
             return ret
         elif self.simulator_type == "omnigibson":
-            ret = self._get_observations()
+            ret = [self._get_observations()]
             return ret
         else:
             raise NotImplementedError
@@ -345,7 +357,7 @@ class SimulatorAdapter:
             return self.envs.current_episodes()
         elif self.simulator_type == "omnigibson":
             # Placeholder: Implement observation transforms for OmniGibson
-            pass
+            return self.episodes
         else:
             raise NotImplementedError
         

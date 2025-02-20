@@ -926,10 +926,21 @@ class RLTrainer(BaseVLNCETrainer):
         instr_pad_id = 1 if self.config.MODEL.task_type == 'rxr' else 0
         observations = extract_instruction_tokens(observations, self.config.TASK_CONFIG.TASK.INSTRUCTION_SENSOR_UUID,
                                                   max_length=instr_max_len, pad_id=instr_pad_id)
+        
+        print(f"rollout observations[0]")
+        for k,v in observations[0].items():
+            print(f"key: {k}")
+            if v is not None:
+                try:
+                    print(f"shape: {v.shape}")
+                except AttributeError:
+                    print(f"len: {len(v)}, {v}")
+        #print(f"rollout observations[0][0].keys(): {observations[0][0].keys()}")
         batch = batch_obs(observations, self.device)
         batch = apply_obs_transforms_batch(batch, self.obs_transforms)
         
         if mode == 'eval':
+            print(f"rollout: current_episodes: {self.envs.current_episodes()} \n rollout: self.stat_eps: {self.stat_eps}")
             env_to_pause = [i for i, ep in enumerate(self.envs.current_episodes()) 
                             if ep.episode_id in self.stat_eps]    
             self.envs, batch = self._pause_envs(self.envs, batch, env_to_pause)
