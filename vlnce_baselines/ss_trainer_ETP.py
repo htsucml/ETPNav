@@ -922,6 +922,7 @@ class RLTrainer(BaseVLNCETrainer):
         debug_log("rollout: resetting env all")
         observations = self.envs.reset()
         debug_log("rollout: env reset")
+        #print(f"rollout: observations after reset {observations}")
         instr_max_len = self.config.IL.max_text_len # r2r 80, rxr 200
         instr_pad_id = 1 if self.config.MODEL.task_type == 'rxr' else 0
         observations = extract_instruction_tokens(observations, self.config.TASK_CONFIG.TASK.INSTRUCTION_SENSOR_UUID,
@@ -1165,8 +1166,15 @@ class RLTrainer(BaseVLNCETrainer):
                     if self.config.MODEL.consume_ghost:
                         gmap.delete_ghost(ghost_vp)
 
+            print(f"rollout: env_actions: {env_actions}")
+            #print(f"rollout: self.config.VIDEO_OPTION: {self.config.VIDEO_OPTION}")
+            #env_actions = [{'action': {'act': env_actions[0]['action']['act'], 'back_path':[], 'tryout': False}, 'vis_info': None}]
+            #print(f"rollout: env_actions 2: {env_actions}")
             outputs = self.envs.step(env_actions)
+    
             observations, _, dones, infos = [list(x) for x in zip(*outputs)]
+            print(f"rollout: dones {dones}")
+            print(f"rollout: infos {infos}")
 
             # calculate metric
             if mode == 'eval':

@@ -89,7 +89,31 @@ class SimulatorAdapter:
             }
             self.action_space = [ActionSpace(action_space)]
             self.episodes = [OGEpisode()]
+            self.robot = self.envs.robots[0]
 
+            from omnigibson.action_primitives.starter_semantic_action_primitives import (
+                StarterSemanticActionPrimitives,
+                StarterSemanticActionPrimitiveSet,
+                PlanningContext,
+                ActionPrimitiveError,
+                indented_print
+            )
+            self.controller = StarterSemanticActionPrimitives(self.envs, enable_head_tracking=True)
+            def make_info():
+                info = {}
+                info['position'] = {
+                    'position':[],
+                    'distance': [],
+                }
+                info['steps_taken'] = 0
+                info['collisions'] = {
+                        'count': 0,
+                        'is_collision': False
+                    }
+                return info
+            
+            self.infos = [make_info() for _ in self.episodes]
+            
 
             #self.envs = og.Environment(self.config)  # Placeholder for actual OG setup
 
@@ -222,7 +246,50 @@ class SimulatorAdapter:
             return ret
         else:
             raise NotImplementedError
+    
+    def _teleport(self, pos):
+        #re-position the robot
+        import omnigibson as og
+        robot = self.envs.robots[0]
+        origin = robot.get_position_orientation()[0]
+        print(f"_teleport: hopping from {origin} to {pos}")
+        
+        robot.set_position_orientation(position=pos)
+        og.sim.step()
+        print(f"_teleport: Now at {robot.get_position_orientation()[0]}")
+        return
+    
+    def _single_step_control(self, pos, tryout, vis_info):
+        #most work here
+        #to check
 
+        #use controller to move to the target position pos
+
+        #for action in self.controller._navigate_to_pose(pos):
+            #obs = self.envs.step(action)
+        import numpy as np
+        #if type(pos) is tuple and type (pos[1]) is np.array:
+        if type(pos[0]) is str:
+            print("!!WARNING!! unknown back_path bug workaround")
+            print(f"{pos} -> {pos[1]}")
+            pos = pos[1]
+        self._teleport(pos)
+        print("!!WARNING!! step: Using teleport mode to navigate, this should only be used for debugging")
+
+        return 
+
+    def _multi_step_control(self, path, tryout, vis_info):
+        for pos in path:
+            self._single_step_control(pos, tryout, vis_info)
+        #return obs
+    
+    def get_observation_at(self, pos, ori):
+        #check step habitat
+        return
+    
+    def _maniputate(self, act):
+        return
+    
     def step(self, actions):
         """
         Steps the environment with the given actions.
@@ -236,6 +303,14 @@ class SimulatorAdapter:
                     observations: 
         """
         if self.simulator_type == "habitat":
+            print(f"SimulationAdapter:step:actions: {actions}")
+            if 'vis_info' in actions[0]:
+                if actions[0]['vis_info']:
+                    for k,v in actions[0]['vis_info'].items():
+                        if type(v) is list:
+                            print('action vis_info: ', k, [_v.shape for _v in v])
+                        else:                    
+                            print('action vis_info: ', k, v.shape)
             ret = self.envs.step(actions)
             #https://github.com/facebookresearch/habitat-sim/blob/main/src_python/habitat_sim/simulator.py
             #get_sensor_observations
@@ -262,7 +337,40 @@ class SimulatorAdapter:
             #raise
             return ret
         elif self.simulator_type == "omnigibson":
-            return self.envs.step(actions)
+            action = actions[0]['action']
+            print(action)
+            vis_info = None
+            act = action['act']
+            if act== 4: #move
+                if action['back_path'] is None: 
+                    self._teleport(action['front_pos'])
+                else: #move back
+                    self._multi_step_control(action['back_path'], action['tryout'], vis_info)
+                self._single_step_control(action['ghost_pos'], action['tryout'], vis_info)
+                
+                new_position = self.robot.get_position_orientation()[0]
+                self.infos[0]['position']['position'].append(new_position)
+                print("!!WARNING!! Setting distance as 2 for debugging propose")
+                self.infos[0]['position']['distance'].append(2)
+                self.infos[0]['steps_taken'] += 1
+                
+            else: #manipulate
+                if action['back_path'] is None:
+                    self._teleport(action['stop_pos'])
+                else:
+                    self._multi_step_control(action['back_path'], action['tryout'], vis_info)
+                    self._maniputate(act)
+                
+
+            #back_path is None: Te
+            #return self.envs.step(actions)
+
+            #observations, _, dones, infos = [list(x) for x in zip(*outputs)]
+            #print(f"")
+            observations = [self._get_observations()]
+            ret = zip(observations, [None], [False], self.infos)
+            print(f"Simulator Adapter step: {self.infos}")
+            return ret
         else:
             raise NotImplementedError
         
