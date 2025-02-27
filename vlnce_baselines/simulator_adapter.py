@@ -101,6 +101,7 @@ class SimulatorAdapter:
             self.controller = StarterSemanticActionPrimitives(self.envs, enable_head_tracking=True)
             def make_info():
                 info = {}
+                info['done'] = False
                 info['position'] = {
                     'position':[],
                     'distance': [],
@@ -132,6 +133,8 @@ class SimulatorAdapter:
         if self.simulator_type == "habitat":
             return self.envs.num_envs
         elif self.simulator_type == "omnigibson":
+            #print("!!ARNING!! SimulationAdapter get_num_envs placeholder")
+            #return 0 if self._is_done() else 1
             return 1
         else:
             raise NotImplementedError
@@ -184,7 +187,7 @@ class SimulatorAdapter:
         print(f"sim viewer resolution: {sim.viewer_width}x{sim.viewer_height}")
 
         def process_image(rgb_obs):
-            print(f"rgb_obs {rgb_obs}")
+            #print(f"rgb_obs {rgb_obs}")
             rgb_image = np.array(rgb_obs).astype(np.uint8)
             #rgb_image = np.array(rgb_obs * 255).astype(np.uint8)
             return rgb_image
@@ -290,6 +293,10 @@ class SimulatorAdapter:
     def _maniputate(self, act):
         return
     
+    def _is_done(self):
+        print(f"!!WARNING!! fSimulationAdapter is_done: using placeholder: {self.infos[0]['steps_taken']}>20")
+        return self.infos[0]['steps_taken']>10
+    
     def step(self, actions):
         """
         Steps the environment with the given actions.
@@ -349,7 +356,7 @@ class SimulatorAdapter:
                 self._single_step_control(action['ghost_pos'], action['tryout'], vis_info)
                 
                 new_position = self.robot.get_position_orientation()[0]
-                self.infos[0]['position']['position'].append(new_position)
+                self.infos[0]['position']['position'].append(new_position.numpy())
                 print("!!WARNING!! Setting distance as 2 for debugging propose")
                 self.infos[0]['position']['distance'].append(2)
                 self.infos[0]['steps_taken'] += 1
@@ -368,7 +375,7 @@ class SimulatorAdapter:
             #observations, _, dones, infos = [list(x) for x in zip(*outputs)]
             #print(f"")
             observations = [self._get_observations()]
-            ret = zip(observations, [None], [False], self.infos)
+            ret = zip(observations, [None], [self._is_done()], self.infos)
             print(f"Simulator Adapter step: {self.infos}")
             return ret
         else:

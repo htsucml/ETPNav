@@ -725,6 +725,8 @@ class RLTrainer(BaseVLNCETrainer):
         self.pbar = tqdm.tqdm(total=eps_to_eval) if self.config.use_pbar else None
         debug_log("_eval_checkpoint: before rollout")
         while len(self.stat_eps) < eps_to_eval:
+            print(f"_eval_checkpoint: len(self.stat_eps): {len(self.stat_eps)}  eps_to_eval:{eps_to_eval}")
+            print(f"self.stat_eps: {self.stat_eps}")
             self.rollout('eval')
         self.envs.close()
 
@@ -906,7 +908,7 @@ class RLTrainer(BaseVLNCETrainer):
         else:
             raise NotImplementedError
 
-        print(f"gt_data length: {len(self.gt_data)}")
+        print(f"gt_data length: {len(self.gt_data)}, max_len:{self.max_len}")
         #print(f"{len(self.gt_data['episodes'])}, {type(self.gt_data['episodes'])}")
         print(self.gt_data['episodes'][0].keys()) 
         #dict_keys(['episode_id', 'trajectory_id', 'scene_id', 
@@ -1187,14 +1189,19 @@ class RLTrainer(BaseVLNCETrainer):
                     ep_id = curr_eps[i].episode_id
                     #str(self.envs.current_episodes().episode_id) in self.gt_data
                     #if str(ep_id) not in self.gt_data['episodes']:
-                    if str(ep_id) not in new_gt_data:
-                        print(f"{ep_id} does not exist")
-                        continue
+                    
+                    #if str(ep_id) not in new_gt_data:
+                        #print(f"{ep_id} does not exist")
+                        #continue
+                    #print(f"reference: {new_gt_data[str(ep_id)]['reference_path']}")
+                    print(f"!!WARNING!! rollout: skipping gt_data check, might result in bugs")
+                    
+
                     #gt_path = np.array(self.gt_data[str(ep_id)]['locations']).astype(np.float)
                     #gt_path = np.array(self.gt_data['episodes'][str(ep_id)]['locations']).astype(np.float)
                     #gt_path = np.array(new_gt_data[str(ep_id)]['reference_path']).astype(np.float)
-                    print(f"reference: {new_gt_data[str(ep_id)]['reference_path']}")
-
+                    
+                    print(f"rollout: info['position']['position']: {info['position']['position']}")
                     pred_path = np.array(info['position']['position'])
                     distances = np.array(info['position']['distance'])
                     metric = {}
@@ -1258,11 +1265,17 @@ class RLTrainer(BaseVLNCETrainer):
 
             #if self.envs.num_envs == 0:
             if self.envs.get_num_envs() == 0:
+                print(f"rollout: num_envs: {self.envs.get_num_envs()}")
                 break
 
+            if not observations:
+                print(f"!!WARNING!! terminating rollout loop with len(observations), might cause bugs {len(observations)}")
+                break
+            
             # obs for next step
             #debug_log(f'rollout observations[0] {observations[0]}')
             observations = extract_instruction_tokens(observations,self.config.TASK_CONFIG.TASK.INSTRUCTION_SENSOR_UUID)
+            print(f"rollout: extract_instruction_tokens called {type(observations)}")
             batch = batch_obs(observations, self.device)
             batch = apply_obs_transforms_batch(batch, self.obs_transforms)
 
