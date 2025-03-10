@@ -37,7 +37,7 @@ from vlnce_baselines.common.utils import extract_instruction_tokens
 from vlnce_baselines.models.graph_utils import GraphMap, MAX_DIST
 from vlnce_baselines.utils import reduce_loss
 
-from .simulator_adapter import SimulatorAdapter
+from .simulator_adapter import SimulatorAdapter, habitat2og, og2habitat
 from .utils import get_camera_orientations12
 from .utils import (
     length2mask, dir_angle_feature_with_ele,
@@ -131,6 +131,7 @@ def get_temp_og_cfg():
     cfg['robots'][0]['position'] = [robot_position[0], robot_position[1], cfg['robots'][0]['position'][2]]
     print(cfg)
     return cfg
+
 
 @baseline_registry.register_trainer(name="SS-ETP")
 class RLTrainer(BaseVLNCETrainer):
@@ -907,6 +908,8 @@ class RLTrainer(BaseVLNCETrainer):
             feedback = 'argmax'
         else:
             raise NotImplementedError
+        
+        use_og = self.envs.simulator_type.lower()=='omnigibson'
 
         print(f"gt_data length: {len(self.gt_data)}, max_len:{self.max_len}")
         #print(f"{len(self.gt_data['episodes'])}, {type(self.gt_data['episodes'])}")
@@ -1015,8 +1018,15 @@ class RLTrainer(BaseVLNCETrainer):
                 in_train = (mode == 'train' and self.config.IL.waypoint_aug),
             )
 
+            for k,v in wp_outputs.items():
+                if hasattr(v, 'shape'):
+                    print(f"rollout:wp_outputs k:{k} v:{v.shape}")
+                else:
+                    print(f"rollout:wp_outputs k:{k} v:{v[0].shape if len(v)==1 and hasattr(v[0], 'shape') else v}")
+            
             # pano encoder
             vp_inputs = self._vp_feature_variable(wp_outputs)
+            print(f"rollout: vp_inputs['loc_fts']: {vp_inputs['loc_fts']}")
             vp_inputs.update({
                 'mode': 'panorama',
             })
@@ -1032,7 +1042,7 @@ class RLTrainer(BaseVLNCETrainer):
             #for i in range(self.envs.num_envs):
             for i in range(self.envs.get_num_envs()):
                 cur_vp_i, cand_vp_i, cand_pos_i = self.gmaps[i].identify_node(
-                    cur_pos[i], cur_ori[i], wp_outputs['cand_angles'][i], wp_outputs['cand_distances'][i]
+                    cur_pos[i], cur_ori[i], wp_outputs['cand_angles'][i], wp_outputs['cand_distances'][i], use_og
                 )
                 cur_vp.append(cur_vp_i)
                 cand_vp.append(cand_vp_i)
@@ -1172,7 +1182,7 @@ class RLTrainer(BaseVLNCETrainer):
             #print(f"rollout: self.config.VIDEO_OPTION: {self.config.VIDEO_OPTION}")
             #env_actions = [{'action': {'act': env_actions[0]['action']['act'], 'back_path':[], 'tryout': False}, 'vis_info': None}]
             #print(f"rollout: env_actions 2: {env_actions}")
-            outputs = self.envs.step(env_actions)
+            outputs = self.envs.step(env_actions, from_habitat_to_og=use_og)
     
             observations, _, dones, infos = [list(x) for x in zip(*outputs)]
             print(f"rollout: dones {dones}")

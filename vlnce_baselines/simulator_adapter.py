@@ -1,3 +1,47 @@
+import numpy as np
+
+def habitat2og(habitat_pos):
+    """
+    Convert a position from Habitat (HM3D) to Omnigibson (OG) coordinate system.
+
+    Habitat: (X, Y, Z) -> (X, Z, -Y) in OG
+    """
+    return habitat_pos
+    x, y, z = habitat_pos
+    return np.array([x, -z, y])
+
+def og2habitat(og_pos):
+    """
+    Convert a position from Omnigibson (OG) to Habitat (HM3D) coordinate system.
+
+    OG: (X, Y, Z) -> (X, -Z, Y) in Habitat
+    """
+    x, y, z = og_pos
+    return np.array([x, z, -y])
+
+
+def compute_correct_og_pos(cur_pos_og, hm3d_pos_new):
+    """
+    Given:
+    - cur_pos_og (current position in OG format)
+    - hm3d_pos_cur (current position in HM3D format)
+    - hm3d_pos_new (HM3D computed new position)
+    
+    Returns:
+    - corrected new position in OG format
+    """
+    hm3d_pos_cur = og2habitat(cur_pos_og)
+
+    # Compute delta in HM3D
+    delta_hm3d = np.array(hm3d_pos_new) - np.array(hm3d_pos_cur)
+
+    # Convert delta to OG format
+    delta_og = habitat2og(delta_hm3d) - habitat2og(np.zeros(3))
+
+    # Apply to OG position
+    new_pos_og = np.array(cur_pos_og) + delta_og
+
+    return new_pos_og
 
 
 def debug_log(msg):
@@ -48,7 +92,6 @@ class SimulatorAdapter:
             print("started omnigibson in simulationadapter")
 
             from gym.spaces import Dict, Box, Discrete
-            import numpy as np
 
             self.observation_spaces = [Dict({
                 'depth': Box(0.0, 1.0, (256, 256, 1), dtype=np.float32),
@@ -111,6 +154,8 @@ class SimulatorAdapter:
                         'count': 0,
                         'is_collision': False
                     }
+                print(f"!!WARNING!!:init_info: Setting [1.0,-0.5, 0.0] as temporal goal")
+                info['goal'] = np.array([1.0, -0.5, 0.0])
                 return info
             
             self.infos = [make_info() for _ in self.episodes]
@@ -178,7 +223,6 @@ class SimulatorAdapter:
         from omnigibson.sensors import VisionSensor
         from omnigibson.utils.transform_utils import euler2quat, quat_multiply
         import torch
-        import numpy as np
         import cv2
         import omnigibson as og
         sim = og.sim
@@ -250,11 +294,16 @@ class SimulatorAdapter:
         else:
             raise NotImplementedError
     
-    def _teleport(self, pos):
+    def _teleport(self, pos, from_habitat):
         #re-position the robot
         import omnigibson as og
         robot = self.envs.robots[0]
         origin = robot.get_position_orientation()[0]
+
+        #if from_habitat:
+            #pos = habitat2og(pos)
+        #pos = compute_correct_og_pos(pos)
+
         print(f"_teleport: hopping from {origin} to {pos}")
         
         robot.set_position_orientation(position=pos)
@@ -262,7 +311,7 @@ class SimulatorAdapter:
         print(f"_teleport: Now at {robot.get_position_orientation()[0]}")
         return
     
-    def _single_step_control(self, pos, tryout, vis_info):
+    def _single_step_control(self, pos, tryout, vis_info, from_habitat):
         #most work here
         #to check
 
@@ -270,20 +319,20 @@ class SimulatorAdapter:
 
         #for action in self.controller._navigate_to_pose(pos):
             #obs = self.envs.step(action)
-        import numpy as np
         #if type(pos) is tuple and type (pos[1]) is np.array:
+        
         if type(pos[0]) is str:
             print("!!WARNING!! unknown back_path bug workaround")
             print(f"{pos} -> {pos[1]}")
             pos = pos[1]
-        self._teleport(pos)
+        self._teleport(pos, from_habitat)
         print("!!WARNING!! step: Using teleport mode to navigate, this should only be used for debugging")
 
         return 
 
-    def _multi_step_control(self, path, tryout, vis_info):
+    def _multi_step_control(self, path, tryout, vis_info, from_habitat):
         for pos in path:
-            self._single_step_control(pos, tryout, vis_info)
+            self._single_step_control(pos, tryout, vis_info, from_habitat)
         #return obs
     
     def get_observation_at(self, pos, ori):
@@ -297,7 +346,7 @@ class SimulatorAdapter:
         print(f"!!WARNING!! fSimulationAdapter is_done: using placeholder: {self.infos[0]['steps_taken']}>20")
         return self.infos[0]['steps_taken']>10
     
-    def step(self, actions):
+    def step(self, actions, from_habitat_to_og=False):
         """
         Steps the environment with the given actions.
 
@@ -345,27 +394,29 @@ class SimulatorAdapter:
             return ret
         elif self.simulator_type == "omnigibson":
             action = actions[0]['action']
-            print(action)
+            print(f"SimulationAdapter:step:actions: {action}")
             vis_info = None
             act = action['act']
             if act== 4: #move
                 if action['back_path'] is None: 
                     self._teleport(action['front_pos'])
                 else: #move back
-                    self._multi_step_control(action['back_path'], action['tryout'], vis_info)
-                self._single_step_control(action['ghost_pos'], action['tryout'], vis_info)
+                    self._multi_step_control(action['back_path'], action['tryout'], vis_info, from_habitat_to_og)
+                self._single_step_control(action['ghost_pos'], action['tryout'], vis_info, from_habitat_to_og)
+                print(f"Ghost moving: Moving from {self.robot.get_position_orientation()} to {action['ghost_pos']}")
                 
                 new_position = self.robot.get_position_orientation()[0]
                 self.infos[0]['position']['position'].append(new_position.numpy())
-                print("!!WARNING!! Setting distance as 2 for debugging propose")
-                self.infos[0]['position']['distance'].append(2)
+                distance = np.linalg.norm(new_position - self.infos[0]['goal'])
+                print("!!WARNING!! Setting distance = new_position -> self.infos[0]['goal'] for debugging propose")
+                self.infos[0]['position']['distance'].append(distance)
                 self.infos[0]['steps_taken'] += 1
                 
             else: #manipulate
                 if action['back_path'] is None:
-                    self._teleport(action['stop_pos'])
+                    self._teleport(action['stop_pos'], from_habitat_to_og)
                 else:
-                    self._multi_step_control(action['back_path'], action['tryout'], vis_info)
+                    self._multi_step_control(action['back_path'], action['tryout'], vis_info, from_habitat_to_og)
                     self._maniputate(act)
                 
 
